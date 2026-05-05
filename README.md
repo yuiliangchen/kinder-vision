@@ -9,6 +9,7 @@
 - Skill JSON 欄位範本：`docs/skill-json-schemas.md`
 - 環境變數範本：`.env.example`
 - OpenClaw 專用 skill 設定：`skills/openclaw.skill.json`
+- OpenClaw workflow 範例：`skills/openclaw.workflow.json`
 
 ## 核心分析技術 (Core Analytics Technologies)
 

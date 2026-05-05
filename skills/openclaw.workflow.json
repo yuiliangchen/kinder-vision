@@ -1,0 +1,94 @@
+{
+  "kind": "openclaw_workflow",
+  "name": "kinder-vision-async-analysis",
+  "version": "0.1.0",
+  "description": "Start Kinder Vision analysis and poll until terminal status.",
+  "inputs": {
+    "video_path": "videos/demo.mp4",
+    "stride": 4,
+    "pose": "pose",
+    "no_llm": true,
+    "timeout_sec": 7200,
+    "poll_interval_sec": 5
+  },
+  "steps": [
+    {
+      "id": "start",
+      "type": "action",
+      "skill": "kinder-vision-api",
+      "action": "start_analysis",
+      "args": {
+        "video_path": "{{inputs.video_path}}",
+        "stride": "{{inputs.stride}}",
+        "pose": "{{inputs.pose}}",
+        "no_llm": "{{inputs.no_llm}}"
+      },
+      "save_as": "start_result"
+    },
+    {
+      "id": "poll_until_done",
+      "type": "loop",
+      "max_duration_sec": "{{inputs.timeout_sec}}",
+      "sleep_sec": "{{inputs.poll_interval_sec}}",
+      "body": [
+        {
+          "id": "get_task",
+          "type": "action",
+          "skill": "kinder-vision-api",
+          "action": "get_task",
+          "args": {
+            "task_id": "{{start_result.task_id}}"
+          },
+          "save_as": "task"
+        },
+        {
+          "id": "check_success",
+          "type": "condition",
+          "if": "{{task.status == 'succeeded'}}",
+          "then": [
+            {
+              "id": "finish_success",
+              "type": "return",
+              "value": {
+                "ok": true,
+                "task_id": "{{task.task_id}}",
+                "status": "{{task.status}}",
+                "outputs": "{{task.outputs}}"
+              }
+            }
+          ]
+        },
+        {
+          "id": "check_failure",
+          "type": "condition",
+          "if": "{{task.status == 'failed' || task.status == 'cancelled'}}",
+          "then": [
+            {
+              "id": "finish_failure",
+              "type": "return",
+              "value": {
+                "ok": false,
+                "task_id": "{{task.task_id}}",
+                "status": "{{task.status}}",
+                "error": "{{task.error}}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timeout",
+      "type": "return",
+      "value": {
+        "ok": false,
+        "task_id": "{{start_result.task_id}}",
+        "status": "timeout",
+        "error": {
+          "code": 408,
+          "message": "Polling timeout before task reached terminal state"
+        }
+      }
+    }
+  ]
+}
