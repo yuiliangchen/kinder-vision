@@ -1,120 +1,67 @@
-# kinder-vision-core — 幼兒行為分析系統核心調度員
+# kinder-vision-core — 核心調度（對齊 `kv/pipeline.py`）
 
 ## 角色定位
-你是幼兒音樂課堂行為分析系統的「任務中樞」。當用戶輸入一段幼兒音樂課影片時，你負責啟動、協調、監控整個分析流程，直到產出完整報告。
+負責啟動並串接完整分析管線：影片讀取 -> 身分映射 -> macro -> micro -> metrics -> 教學報告 -> 檔案落地。
 
 ---
 
 ## 觸發時機
-- 用戶發送影片並說「分析」
-- 用戶說「開始分析」「跑一次分析」「分析這段影片」
-- 用戶要求「完整分析」
+- 使用者要求「分析影片 / 跑完整流程」。
+- CLI 執行 `python -m kv.cli <video>`（或 `python -m kv`）。
 
 ---
 
-## 核心工作流程
+## 實際流程（以程式為準）
 
-### Step 1：影片攝入與預處理
-- 接收影片路徑，偵測解析度與時長。
+### Step 1: 影片與區間處理
+- 讀取影片 meta（fps、frame_count、duration）。
+- 若提供 `t0/t1`，先用 `ffmpeg` 匯出片段（`tmp/kinder-segment.mp4`），後續皆以片段分析。
 
-### Step 1.5：身分識別與 ReID 歸戶 (Identity Linkage)
-- **調用模組**：`kinder-identity-manager`
-- **處理**：
-    1. 提取畫面中幼兒的臉部與肢體特徵。
-    2. 比對 `memory/identity_features.db.json`。
-    3. **歸戶判定**：若匹配度 > 0.85，載入其 `student_id` 與歷史成長指標；若不匹配，則建立新 ID。
-- **輸出**：帶有身分標籤的追蹤名單。
+### Step 2: 中間幀身分映射（slot map）
+- 使用 YOLO 在影片中間幀偵測人框，按 x 座標由左到右排序成槽位。
+- 優先嘗試 ArcFace（若可用），否則用外觀 embedding。
+- 以 `identity.assign_identity` 比對 `memory/identity_features.db.json`，可依 `learn_identities` 寫入新身分。
+- 輸出：`tmp/kinder-identity-map.json`。
 
-### Step 2：巨觀層分析 (Macro Analysis)
-- 分析隊形、熱區分布。
+### Step 3: 巨觀分析（Macro）
+- 呼叫 `kv.macro_analytics.run_macro(...)`。
+- 產出 `tmp/kinder-macro-result.json` 與 `tmp/kinder-heatmap.png`。
+- 同步機讀摘要到 `memory/YYYY-MM-DD-kinder-macro.md`。
 
-### Step 3：微觀層分析 (Micro Analysis)
-- 分析同步度、流暢度。
+### Step 4: 微觀分析（Micro）
+- 呼叫 `kv.micro_analytics.run_micro(...)`，預設使用 ByteTrack；無法穩定追蹤時會回退到「槽位對齊（無追蹤）」。
+- 可選姿勢後端：`off | pose | holistic`（MediaPipe 初始化失敗會回退僅 YOLO 並寫 warnings）。
+- 若啟用 `use_video_reid`，會輸出 `reid_by_track`。
+- 產出：`tmp/kinder-micro-result.json` 與個別軌跡圖 `tmp/kinder-child-*-trajectory.png`。
 
-### Step 4：指標核查與趨勢比對 (Metrics & Trend Check)
-- **調用模組**：`kinder-metrics-checker`
-- **處理**：對比該幼兒本次數據與 `memory/` 中的歷史存檔。
-- **輸出**：紅黃綠燈狀態 + 成長/退步趨勢。
+### Step 5: 身分合併與名稱正規化
+- 先採用 `micro.reid_by_track` 的軌跡 ReID；缺失時回退中間幀槽位映射。
+- 對外顯示名稱統一轉成「孩子 N」。
 
-### Step 5：教育建議與自動歸檔 (Edu Advisor & Archiving)
-- 生成溫馨報告。
-- **自動執行**：將本次分析結果寫入 `memory/YYYY-MM-DD_{student_id}_metrics.json`。
+### Step 6: 指標核查與教育建議
+- `kv.metrics_checker.run_metrics(macro, micro)` -> `tmp/kinder-metrics-check.json`。
+- `kv.edu_advisor.render_edu_markdown(...)` -> `tmp/kinder-edu-report.md`。
+- 若 `use_llm=True`，嘗試附加「## 五、AI 教學補充建議」（無 key 或套件缺失會靜默略過並紀錄 warning）。
 
-
----
-
-## 輸出格式
-
-```markdown
-# 📊 幼兒行為分析報告
-
-## 基本資訊
-- 影片時長：X 分 Y 秒
-- 分析時間：YYYY-MM-DD HH:mm
-- 幼兒人數：約 N 人
+### Step 7: 歸檔與可選 PDF
+- 同步寫入 `memory/` 同日摘要檔（macro/micro/metrics/edu/analysis）。
+- 每位幼兒寫入 `memory/metrics/YYYY-MM-DD_<student_id>_metrics.json`。
+- 預設累積 `memory/students/<student_id>/sessions.jsonl`（可由 `--no-accumulate-sessions` 關閉）。
+- 若 `emit_pdf=True`，輸出 `tmp/kinder-report.pdf` 並複製到 `memory/<timestamp>-kinder-report.pdf`。
 
 ---
 
-## 1️⃣ 巨觀層分析
-
-### 隊形結構變化
-| 時間區間 | 隊形類型 | 占比 |
-|---------|---------|------|
-| 00:00-01:30 | 圓形 | 60% |
-| 01:30-02:45 | 分散 | 40% |
-
-### 空間使用率
-（熱區描述）
-
-### 群體互動密度
-（平均距離：X cm，變化趨勢描述）
-
----
-
-## 2️⃣ 微觀層分析
-
-### 節奏同步度 TOP 3（最優）
-- 🥇 孩子 A：同步誤差 32ms
-- 🥈 孩子 B：同步誤差 48ms
-- 🥉 孩子 C：同步誤差 61ms
-
-### 抑制控制評估（需關注）
-- ⚠️ 孩子 D：停止後位移 18.2cm，建議加強
-- ⚠️ 孩子 E：停止後位移 12.1cm，留意觀察
-
-### 動作流暢度評分
-（流暢度排名）
-
----
-
-## 3️⃣ 指標核查結果
-
-| 指標 | 結果 | 狀態 |
-|-----|------|------|
-| 節奏同步度 | 良好 | 🟡 |
-| 身體穩定度 | 需加強 | 🔴 |
-| 動作流暢度 | 優秀 | 🟢 |
-| 群體參與度 | 良好 | 🟡 |
-
----
-
-## 4️⃣ 教育建議
-
-### 班級整體回饋
-本次課程整體秩序良好，特別在圓形隊形時同步率極佳。建議在「分散活動」環節加強指令清晰度，以改善隊形切換時的穩定性。
-
-###個別關注建議
-1. **孩子 D**：抑制控制能力需訓練，建議增加「音樂停→立刻靜止」的小組競賽遊戲。
-2. **孩子 E**：動作協調有進步空間，可安排「緩慢踏步」活動強化本體感覺。
-
-### 教學策略調整建議
-- 在 01:30 隊形切換前，可先以視覺線索（如地墊標記）幫助幼兒預作準備。
-- 建議將「分散活動」時間控制在 1 分鐘以內，避免注意力分散。
-```
+## 主要輸出檔
+- `tmp/kinder-identity-map.json`
+- `tmp/kinder-macro-result.json`
+- `tmp/kinder-micro-result.json`
+- `tmp/kinder-metrics-check.json`
+- `tmp/kinder-edu-report.md`
+- `memory/YYYY-MM-DD-kinder-analysis.md`
 
 ---
 
 ## 限制與原則
-- **不取代教師判斷**：所有分析結果僅供輔助參考，最終判斷權在教師
-- **隱私保護**：報告中不使用幼兒真實姓名，僅以「孩子 A/B/C」代稱
-- **資料儲存**：分析完成後，將結果同步寫入 `memory/YYYY-MM-DD-kinder-analysis.md`
+- 僅為教學輔助，不替代教師判斷。
+- 對外應使用去識別稱呼（孩子 N）。
+- 若模型或依賴不可用，應回退並在 `warnings` 清楚註記，而非中止整個流程。

@@ -1,84 +1,47 @@
-# kinder-vision — 幼兒行為分析系統 (Kinder Vision System)
+# kinder-vision — 系統總覽（對齊目前程式）
 
 ## 角色定位
-你是一個專為幼兒音樂教育設計的行為分析專家系統。你的目標是將影片中幼兒的肢體動作轉化為量化數據，並將這些數據翻譯成具有教育意義的洞察，協助教師優化教學策略並提供個體化支持。
-
-本系統基於 **HMEAYC 音樂教育研究**，將分析分為三個層級：**巨觀 (Macro)** $\rightarrow$ **微觀 (Micro)** $\rightarrow$ **指標核查 (Metrics)** $\rightarrow$ **教育建議 (Edu Advice)**。
-
----
-
-## 1. 完整邏輯流程 (Execution Pipeline)
-
-當用戶請求「分析影片」時，請嚴格按照以下 pipeline 執行：
-
-### Step 1: 影片攝入與預處理 (`kinder-vision-core`)
-- **動作**：接收影片 $\rightarrow$ 偵測元數據 (時長, fps, 解析度) $\rightarrow$ 將影片分段 (每 30s 一節)。
-- **目標**：建立分析基準線，確保後續分析的時序一致性。
-
-### Step 2: 巨觀層分析 (`kinder-macro-analytics`)
-- **分析維度**：
-    - **隊形偵測**：辨識 圓形/直線/分散/群聚 模式。
-    - **空間熱區**：計算 3x3 網格的使用率，找出教室熱點。
-    - **互動密度**：計算幼兒間平均歐氏距離的變化趨勢。
-    - **參與度**：以關鍵點位移量判定「活躍」與「靜止」比例。
-- **目標**：掌握課堂整體氛圍與空間掌控狀況。
-
-### Step 3: 微觀層分析 (`kinder-micro-analytics`)
-- **分析維度**：
-    - **節奏同步度**：計算動作峰值與音樂 BPM 強拍的時間誤差 (ms)。
-    - **抑制控制 (Stop Signal)**：測量音樂停止後 1 秒內的身體位移 (cm)。
-    - **動作流暢度**：計算加速度變化率 (Jerk 值)，評估動作僵硬度。
-    - **個別軌跡**：針對重點幼兒重建 (x, y) 移動路徑圖。
-- **目標**：量化個體發展進度與動作特質。
-
-### Step 4: 指標核查 (`kinder-metrics-checker`)
-- **核查邏輯**：將上述數據對照預設門檻，產出「紅/黃/綠燈」狀態。
-    - **同步度**：<50ms (🟢), 50-150ms (🟡), >150ms (🔴)
-    - **穩定度**：<5cm (🟢), 5-15cm (🟡), >15cm (🔴)
-    - **參與度**：$\ge$80% (🟢), 60-80% (🟡), <60% (🔴)
-- **目標**：快速識別出「達標」與「需關注」的對象。
-
-### Step 5: 教育建議生成 (`kinder-edu-advisor`)
-- **輸出模組**：
-    - **班級整體回饋**：亮點 $\rightarrow$ 觀察重點 $\rightarrow$ 改進方向。
-    - **個體關注名單**：行為模式 $\rightarrow$ 發展意義 $\rightarrow$ 介入策略。
-    - **教學策略調整**：針對數據崩潰點提供具體方案（如：加入視覺預告）。
-    - **家長聯絡簿草稿**：將數據轉化為溫暖、正向的溝通文字。
-- **目標**：將數據回饋至教學實踐。
+本 Skill 是整體導覽：定義「從影片到報告」的標準順序、輸出位置與回退策略。  
+若與實作衝突，以 `kv/cli.py` 與 `kv/pipeline.py` 為準。
 
 ---
 
-## 2. 指令集 (Instruction Set)
-
-| 用戶指令 | 觸發動作 | 核心邏輯 |
-| :--- | :--- | :--- |
-| 「分析這段影片」 / 「開始分析」 | `kinder-vision-core` | 啟動全流程 (Step 1 $\rightarrow$ 5) |
-| 「檢查指標」 / 「數據達標嗎？」 | `kinder-metrics-checker` | 讀取最新 JSON $\rightarrow$ 產出紅黃綠燈報告 |
-| 「針對孩子 A 做深度分析」 | `kinder-micro-analytics` | 聚焦單一 ID $\rightarrow$ 計算同步度/穩定度/軌跡 |
-| 「給我教育建議」 / 「寫聯絡簿」 | `kinder-edu-advisor` | 綜合所有分析結果 $\rightarrow$ 生成人話報告 |
-| 「看看隊形怎麼變化」 | `kinder-macro-analytics` | 提取 `formation_timeline` $\rightarrow$ 描述空間分布 |
-
----
-
-## 3. 實作指南 (Implementation Details)
-
-### 技術棧建議
-- **姿勢偵測**：YOLOv8-Pose 或 MediaPipe Holistic (擷取 17-33 個關鍵點)。
-- **音訊分析**：`librosa` (用於 BPM 偵測與 Onset 檢測)。
-- **數據處理**：`pandas` (時間序列分析), `scipy` (計算 Jerk 值與歐氏距離)。
-- **視覺化**：`matplotlib` (熱力圖, 軌跡圖), `opencv` (影片分段)。
-
-### 數據存儲規範
-- **臨時數據**：分析過程中的 JSON 存於 `/tmp/kinder-*.json`。
-- **永久記憶**：分析完成後，必須同步寫入 `memory/YYYY-MM-DD-kinder-analysis.md`，格式需包含：
-    - 影片基本資訊
-    - 巨觀/微觀核心數值
-    - 指標狀態 (🔴/🟡/🟢)
-    - 最終教育建議摘要
+## 全流程（實作版）
+1. 讀取影片與可選時間區間（`t0/t1`）。
+2. 建立中間幀身分映射（slot + identity db）。
+3. 執行 macro（隊形、熱區、互動距離、參與度）。
+4. 執行 micro（節奏同步、停止後位移、jerk、軌跡圖）。
+5. 合併身分（優先軌跡 ReID，再回退中間幀槽位）。
+6. 計算 metrics（紅黃綠燈與關注名單）。
+7. 產出教育建議 markdown，可選附加 LLM 第五節。
+8. 寫入 `tmp/`、`memory/`、`memory/metrics/`、`memory/students/.../sessions.jsonl`，可選輸出 PDF。
 
 ---
 
-## 4. 限制與原則 (Constraints)
-1. **隱私至上**：嚴禁在報告中使用幼兒真實姓名，一律使用「孩子 A, B, C」。
-2. **輔助定位**：明確標記「本報告由 AI 輔助生成，僅供教學參考，不取代教師專業判斷」。
-3. **數據誠實**：若影片品質過差 (遮蔽嚴重/光線不足)，必須標註「數據不足/追蹤丟失」，不可猜測。
+## 常見觸發與對應
+- 「分析影片」 -> 走完整 pipeline。
+- 「看巨觀/隊形/熱區」 -> 讀 `kinder-macro-result.json`。
+- 「看個體節奏/穩定/流暢」 -> 讀 `kinder-micro-result.json`。
+- 「達標嗎」 -> 讀 `kinder-metrics-check.json`。
+- 「給教學建議 / 聯絡簿」 -> 讀 `kinder-edu-report.md`。
+
+---
+
+## CLI 對齊重點
+- 入口：`python -m kv.cli <video>`（或 `python -m kv <video>`）。
+- 常用開關：`--stride`、`--t0/--t1`、`--no-track`、`--pose off|pose|holistic`、`--no-video-reid`、`--learn-identities`、`--no-llm`、`--pdf`、`--no-accumulate-sessions`。
+
+---
+
+## 輸出位置（固定約定）
+- 臨時輸出：`tmp/kinder-*.json|.md|.png|.pdf`
+- 永久輸出：`memory/YYYY-MM-DD-kinder-*.md`
+- 個別 metrics：`memory/metrics/YYYY-MM-DD_<student_id>_metrics.json`
+- 長期 sessions：`memory/students/<student_id>/sessions.jsonl`
+
+---
+
+## 原則
+1. 嚴守去識別化：對外顯示「孩子 N」。
+2. 明確標記 fallback：追蹤失敗、MediaPipe 不可用、LLM 不可用都要寫 warnings。
+3. 報告僅供教學輔助，不替代教師專業判斷。

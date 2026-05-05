@@ -1,4 +1,4 @@
-# kinder-metrics-checker — 指標核查與達標評估
+# kinder-metrics-checker — 指標核查與達標評估（對齊 `kv/metrics_checker.py`）
 
 ## 角色定位
 你是幼兒行為分析系統的「品質把關者」。接收來自 `kinder-macro-analytics` 和 `kinder-micro-analytics` 的分析數據，對照預設指標門檻，自動產出紅/黃/綠燈的健康狀態報告。
@@ -6,12 +6,12 @@
 ---
 
 ## 輸入
-- `kinder-macro-analytics` 的巨觀分析結果（JSON）
-- `kinder-micro-analytics` 的微觀分析結果（JSON）
+- `macro` 字典（`run_macro` 輸出）
+- `micro` 字典（`run_micro` 輸出）
 
 ---
 
-## 核查指標體系
+## 核查指標體系（實作門檻）
 
 ### A. 群體指標（Macro Metrics）
 
@@ -65,15 +65,15 @@
 
 ### C. 綜合評估
 
-**計算方式**：加權平均
+**計算方式**：加權平均分數
 
 | 權重 | 指標 |
 |-----|------|
 | 30% | 群體參與度 |
-| 20% | 抑制控制（個體平均） |
-| 20% | 節奏同步度（個體平均） |
-| 15% | 隊形達成穩定度 |
-| 15% | 動作流暢度（個體平均） |
+| 20% | 抑制控制（平均位移） |
+| 20% | 節奏同步（平均誤差） |
+| 15% | 隊形穩定度 |
+| 15% | 動作流暢度（平均 jerk） |
 
 **綜合評級**：
 | 綜合分數 | 等第 | 燈號 |
@@ -84,77 +84,38 @@
 
 ---
 
-## 輸出格式
+## 關注名單邏輯（`concern_children`）
+- 紅旗條件：
+  - `avg_displacement_cm > 15`
+  - `avg_error_ms > 150`
+  - `avg_jerk > 6`
+- `priority=high` 條件：`avg_displacement_cm > 20` 或 `avg_error_ms > 220`，否則 `medium`。
+- 顯示名稱採 `identity.display_label_for_child(...)`，對外優先顯示「孩子 N」。
+
+## 輸出格式（簡短示例）
 
 ```json
 {
   "check_timestamp": "2026-05-01 06:40",
-  "overall_status": "🟡 良好",
+  "overall_status": "🟡 良好（綜合分 0.78）",
   "overall_score": 0.78,
-
-  "macro_metrics": {
-    "group_engagement": {
-      "value": 0.82,
-      "status": "🟢 綠燈",
-      "interpretation": "超過80%的幼兒在多數時間保持活躍，參與度佳"
-    },
-    "formation_stability": {
-      "value": 0.68,
-      "status": "🟡 黃燈",
-      "interpretation": "隊形維持時間佔比中等，建議加強指令清晰度"
-    },
-    "space_utilization": {
-      "value": 0.19,
-      "status": "🟡 黃燈",
-      "interpretation": "熱區輕度集中於中央前區，可考慮擴大活動範圍"
-    }
-  },
-
-  "micro_metrics": {
-    "sync_score": {
-      "value_ms": 72,
-      "status": "🟢 綠燈",
-      "interpretation": "平均同步誤差在良好範圍內"
-    },
-    "stability_score": {
-      "value_cm": 11.3,
-      "status": "🟡 黃燈",
-      "interpretation": "抑制控制表現中等，部分孩子需加強"
-    },
-    "fluency_score": {
-      "value_jerk": 4.2,
-      "status": "🟡 黃燈",
-      "interpretation": "動作流暢度普通，整體有進步空間"
-    }
-  },
-
+  "macro_metrics": {"group_engagement": {"value": 0.82, "status": "🟢 綠燈"}},
+  "micro_metrics": {"sync_score": {"value_ms": 72.0, "status": "🟢 綠燈"}},
   "concern_children": [
-    {
-      "child_id": "D",
-      "reason": "抑制控制連續兩次低於標準",
-      "priority": "high"
-    },
-    {
-      "child_id": "E",
-      "reason": "節奏同步誤差 > 200ms",
-      "priority": "medium"
-    }
+    {"child_id": "1", "display_label": "孩子 1", "reason": "抑制控制 / 穩定度偏低", "priority": "high"}
   ],
-
-  "recommendations_summary": [
-    "孩子 D 建議安排一對一干預活動",
-    "全體宜增加『停止信號』練習頻率"
-  ]
+  "recommendations_summary": ["依紅黃燈檢視課程節奏與停止信號設計"]
 }
 ```
+完整欄位請見：`docs/skill-json-schemas.md`（Metrics）。
 
 ---
 
 ## 與其他 Skill 的協作
 
-**上游接收**：巨觀 + 微觀分析結果（JSON 格式）
-**下游輸出至**：`kinder-edu-advisor`（教育建議生成）
-**直接觸發者**：當用戶說「檢查指標」「看看數據是否達標」「幫我核查」
+**上游接收**：巨觀 + 微觀結果
+**下游輸出至**：`kinder-edu-advisor`
+**直接觸發**：當用戶要求核查達標、紅黃綠燈、關注名單
 
 ---
 
@@ -165,6 +126,5 @@
 ---
 
 ## 限制
-- 指標門檻為參考值，教師可依班級狀況自訂
-- 紅/黃/綠燈僅為教學參考，不作為獎懲依據
-- 若資料不足（如影片過短、少於 30 秒），則跳過該項目標註「數據不足」
+- 目前採固定門檻與固定權重，不會自動學習班級基線。
+- 分數僅供教學輔助，不作為正式評量或醫療判讀。

@@ -2,6 +2,13 @@
 
 基於論文《解碼教室裡的舞蹈：AI 如何看懂孩子的肢體學習語言》設計，結合電腦視覺與音樂教育心理學的輔助分析系統。
 
+## 開發維護索引
+
+- 程式檔與 Skill 對應（含高/中/低關聯度）：`SKILL_REVERSE_INDEX.md`
+- VM 部署指南：`docs/deploy-vm.md`
+- Skill JSON 欄位範本：`docs/skill-json-schemas.md`
+- 環境變數範本：`.env.example`
+
 ## 核心分析技術 (Core Analytics Technologies)
 
 ### 1. 節奏同步度分析 (Rhythmic Synchronization)
@@ -77,12 +84,16 @@ pip install -r requirements.txt
 pip install -r requirements-insightface.txt
 # 可選：教育報告末段 LLM 補充（OpenAI 相容 API）
 pip install -r requirements-llm.txt
+# 可選：HTTP API（FastAPI + Uvicorn）
+pip install -r requirements-api.txt
 ```
 
 ### 基本執行
 
 ```bash
 python -m kv.cli <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+# 或使用模組入口（等價）
+python -m kv <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
 ```
 
 常用參數（`--pose` 預設為 `pose`）：
@@ -97,6 +108,8 @@ python -m kv.cli <影片路徑> [--stride 4] [--learn-identities] [--no-track] [
 | `--no-mediapipe` | 等同 `--pose off`。 |
 | `--no-video-reid` | 停用整片軌跡 ReID（不產生 `micro.reid_by_track`）。 |
 | `--no-llm` | 不呼叫 LLM，報告不含「## 五、AI 教學補充建議」。 |
+| `--pdf` | 額外輸出合併 PDF（彙總 + 教育建議；需 `requirements-pdf.txt`）。 |
+| `--no-accumulate-sessions` | 不寫入跨影片累積檔 `memory/students/<id>/sessions.jsonl`。 |
 
 MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會下載）。
 
@@ -111,6 +124,64 @@ MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會
 | `KINDER_LLM_MODEL` | 模型名稱，預設 `gpt-4o-mini`。 |
 
 自架相容端點（如 vLLM、LiteLLM、Azure OpenAI 等）時，請設好 `KINDER_LLM_BASE_URL` 與對應的 `KINDER_LLM_API_KEY`。
+
+### HTTP API（可部署到 VM）
+
+啟動：
+
+```bash
+uvicorn kv.api:app --host 0.0.0.0 --port 8000
+```
+
+健康檢查：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+呼叫分析（非同步，立即回 `task_id`）：
+
+```bash
+curl -X POST http://127.0.0.1:8000/analyze \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your_key>" \
+  -d '{
+    "video_path": "videos/demo.mp4",
+    "stride": 4,
+    "pose": "pose",
+    "no_llm": true
+  }'
+```
+
+查詢任務狀態（queued/running/succeeded/failed）：
+
+```bash
+curl -H "X-API-Key: <your_key>" http://127.0.0.1:8000/tasks/<task_id>
+```
+
+列出最近任務（預設 20 筆，可帶 `?limit=50`）：
+
+```bash
+curl -H "X-API-Key: <your_key>" http://127.0.0.1:8000/tasks
+```
+
+取消任務（queued/running）：
+
+```bash
+curl -X POST -H "X-API-Key: <your_key>" http://127.0.0.1:8000/tasks/<task_id>/cancel
+```
+
+可選安全設定（建議 VM）：
+
+- 設定 `KINDER_API_KEY` 後，`/analyze`、`/tasks`、`/tasks/{id}` 需帶 `X-API-Key`。
+- `KINDER_TASK_TTL_SEC` 可設定任務保留秒數（預設 `86400`，僅清理已完成任務）。
+- 任務狀態會持久化至 `tmp/kinder-api-tasks.json`，服務重啟後可回讀（中斷中的任務會標記為 `cancelled`）。
+
+範例（帶 API key）：
+
+```bash
+curl -H "X-API-Key: <your_key>" http://127.0.0.1:8000/tasks
+```
 
 ### 身分與軌跡 ReID
 

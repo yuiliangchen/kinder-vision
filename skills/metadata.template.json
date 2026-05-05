@@ -1,0 +1,39 @@
+{
+  "name": "kinder-vision",
+  "version": "0.1.0",
+  "description": "Analyze kindergarten movement videos and generate macro/micro/metrics/education reports.",
+  "entrypoints": {
+    "analyze": "python -m kv \"${video_path}\"",
+    "check_metrics": "python -m kv \"${video_path}\" --no-llm",
+    "report_pdf": "python -m kv \"${video_path}\" --pdf"
+  },
+  "capabilities": [
+    "video-analysis",
+    "macro-analytics",
+    "micro-analytics",
+    "metrics-check",
+    "education-report"
+  ],
+  "inputs": {
+    "video_path": {
+      "type": "string",
+      "required": true,
+      "description": "Path to .mp4/.mov/.avi file"
+    },
+    "stride": {
+      "type": "integer",
+      "required": false,
+      "default": 4
+    },
+    "pose": {
+      "type": "string",
+      "required": false,
+      "enum": ["off", "pose", "holistic"],
+      "default": "pose"
+    }
+  },
+  "notes": [
+    "Template only: adjust fields to OpenClaw/Claude Code exact schema.",
+    "Use KINDER_MEMORY_DIR and KINDER_TMP_DIR for VM persistent storage."
+  ]
+}

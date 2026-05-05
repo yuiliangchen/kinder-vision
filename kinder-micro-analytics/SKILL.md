@@ -1,4 +1,4 @@
-# kinder-micro-analytics — 微觀層個體動作分析
+# kinder-micro-analytics — 微觀層個體動作分析（對齊 `kv/micro_analytics.py`）
 
 ## 角色定位
 你是幼兒行為分析系統的「微觀觀察員」。專注於分析**個別幼兒**的肢體動作細節，幫助教師理解每位孩子的動作學習歷程與行為特質。
@@ -6,21 +6,20 @@
 ---
 
 ## 輸入
-- 來自 `kinder-vision-core` 指定的分析片段
-- 或用戶直接要求針對「孩子 A」或「表現最不穩定的 3 位」進行深度分析
-- 需指定：影片路徑、感興趣的時間區間、追蹤人數
+- 影片路徑、`VideoMeta`、YOLO 模型、音訊 `y/sr`。
+- 控制參數：`sample_stride`、`use_tracking`、`pose_mode`、`use_video_reid`、`learn_identities`。
 
 ---
 
 ## 分析維度
 
 ### 1. 節奏同步度分析 (Rhythmic Synchronization)
-**目標**：測量每位幼兒的動作與音樂節拍之間的時間誤差。
+**目標**：估計腕部動作峰值對齊 beat 的平均誤差（ms）。
 
-**處理流程**：
-1. 擷取音樂的 BPM（可用 librosa 或音訊分析工具）
-2. 擷取幼兒關鍵動作時間點（拍手、踏步——以手腕/腳踝關鍵點位移峰值判定）
-3. 計算每次動作與最近音樂強拍（Beat）的時間差
+**實作流程**：
+1. `librosa.beat.beat_track` 取 `bpm_hint` 與 `beat_times`。
+2. 以雙手腕訊號（L2 合成）找局部峰值。
+3. 每峰值對最近 beat 計算絕對時間差（ms）。
 
 **同步誤差分級**：
 | 同步誤差範圍 | 評級 | 說明 |
@@ -30,30 +29,26 @@
 | 150-300ms | 需加強 | 明顯與音樂脫節 |
 | > 300ms | 落後 | 大幅落後或提前，需特別關注 |
 
-**輸出格式**：
-```
+**輸出格式（簡短示例；對應 `children[]` 單筆）**：
+```json
 {
-  "child_id": "A",
-  "bpm": 120,
-  "synchronization_errors": [
-    {"beat_time": "00:05.2", "action_time": "00:05.24", "error_ms": 40},
-    {"beat_time": "00:06.7", "action_time": "00:06.68", "error_ms": -20},
-    ...
-  ],
-  "avg_error_ms": 48,
-  "sync_rating": "優秀"
+  "child_id": "1",
+  "avg_error_ms": 48.27,
+  "avg_displacement_cm": 5.95,
+  "avg_jerk": 3.214
 }
 ```
+完整欄位請見：`docs/skill-json-schemas.md`（Micro）。
 
 ---
 
 ### 2. 抑制控制分析 (Inhibitory Control — Stop Signal)
-**目標**：測量孩子在「音樂停止」後身體是否能立刻靜止並保持穩定。
+**目標**：量測 stop signal 後 1 秒髖部位移（cm）。
 
-**處理流程**：
-1. 偵測音訊中靜音段的起始點（Audio Stop Signal）
-2. 擷取「靜止後 0.5s / 1.0s / 2.0s」三個時間點的身體關鍵點坐標
-3. 計算相對於「停止前 0.5s」的位移量
+**實作流程**：
+1. 由 RMS 掉落點偵測 `stop_times`（最多 12 個）。
+2. 取 `[st, st+1.0s]` 髖部軌跡。
+3. 用起迄點距離估算位移。
 
 **穩定度評級**：
 | 停止後位移（1秒內） | 評級 |
@@ -63,30 +58,27 @@
 | 15-30cm | 需加強 |
 | > 30cm | 明顯不穩定 |
 
-**輸出格式**：
-```
+**整體輸出骨架（簡短示例）**：
+```json
 {
-  "child_id": "B",
-  "stop_signals_detected": [
-    {"signal_time": "00:45.0", "displacement_cm": 3.2},
-    {"signal_time": "01:32.5", "displacement_cm": 18.1},
-    {"signal_time": "02:15.0", "displacement_cm": 8.7}
-  ],
-  "avg_displacement_cm": 10.0,
-  "stability_rating": "需加強",
-  "concern_flag": true
+  "children": [{"child_id": "1", "avg_error_ms": 48.27, "avg_displacement_cm": 3.2, "avg_jerk": 2.104}],
+  "bpm_hint": 119.84,
+  "warnings": [],
+  "tracking": "bytetrack",
+  "pose_backend": "yolo+mediapipe_pose"
 }
 ```
+完整欄位請見：`docs/skill-json-schemas.md`（Micro、Identity Track ReID）。
 
 ---
 
 ### 3. 動作流暢度分析 (Movement Fluency)
-**目標**：評估動作是否自然、連貫，無僵硬或卡顿。
+**目標**：以髖部軌跡估算 jerk（加速度變化率）。
 
-**處理流程**：
-1. 取手腕/腳踝關鍵點的位移時間序列
-2. 計算「Jerk」（加速度的變化率，即加加速度）
-3. Jerk 越低 = 動作越平滑
+**實作流程**：
+1. 髖部座標轉公尺（`meter_per_px`）。
+2. 依時間差推導速度、加速度，再取 jerk。
+3. 使用全段平均 jerk 作為 `avg_jerk`。
 
 **流暢度評級**：
 | 平均 Jerk 值 (m/s³) | 評級 |
@@ -96,58 +88,30 @@
 | 5.0 - 10.0 | 僵硬 |
 | > 10.0 | 非常僵硬 |
 
-**輸出格式**：
-```
-{
-  "child_id": "C",
-  "body_parts": {
-    "right_wrist": {"avg_jerk": 3.2, "rating": "普通"},
-    "left_wrist": {"avg_jerk": 2.8, "rating": "普通"},
-    "right_ankle": {"avg_jerk": 4.1, "rating": "普通"},
-    "left_ankle": {"avg_jerk": 3.9, "rating": "普通"}
-  },
-  "overall_fluency": "普通"
-}
-```
+（流暢度欄位以 `avg_jerk` + `fluency_rating` 直接表示，無 `body_parts` / `overall_fluency` 欄位）
 
 ---
 
-### 4. 個別追蹤軌跡 (Individual Trajectory)
-**目標**：針對教師指定或系統判定需要關注的幼兒，重建其課堂移動軌跡。
+### 4. 個別追蹤軌跡 (Trajectory)
+**目標**：輸出每位幼兒髖部軌跡圖。
 
-**處理流程**：
-1. 使用 ByteTrack 或類似追蹤演算法對單一幼兒建立 ID
-2. 擷取其所有幀的 (x, y) 位置
-3. 繪製軌跡圖（Trajectory Plot）
+**實作流程**：
+- 若 `use_tracking=True`，走 Ultralytics ByteTrack（`model.track`）用 `track_id` 聚合。
+- 若追蹤失敗或未啟用，回退為每幀左到右槽位聚合。
+- 圖檔輸出 `tmp/kinder-child-<id>-trajectory.png`（若提供 `trajectory_dir`）。
 
-**輸出格式**：
-```
-{
-  "child_id": "D",
-  "total_distance_cm": 1245,
-  "avg_speed_cm/s": 6.8,
-  "max_speed_cm/s": 28.3,
-  "time_in_central_zone": 0.45,  // 45%時間在教室中央
-  "trajectory_image": "/tmp/kinder-child-D-trajectory.png",
-  "movement_pattern": "高探索型"  // 與中央區域相對
-}
-```
+（軌跡相關目前只輸出 `trajectory_image`，不包含 `total_distance_cm` / `avg_speed_cm_s` / `movement_pattern` 欄位）
 
 ---
 
-## 與其他 Skill 的協作
-
-**上游觸發者**：`kinder-vision-core`（Step 3）
-**下游輸出至**：`kinder-metrics-checker`（Step 4）、`kinder-edu-advisor`（Step 5）
-
-**輸出檔案**：
-- 結果寫入 `/tmp/kinder-micro-result.json`
-- 軌跡圖寫入 `/tmp/kinder-child-{ID}-trajectory.png`
-- 完整報告同步至 `memory/YYYY-MM-DD-kinder-micro.md`
+## 重要行為（與舊文件差異）
+- `child_id` 目前採數字字串（`"1"`, `"2"`...），不是 A/B/C。
+- `sync_rating`/`stability_rating`/`fluency_rating` 由程式門檻直接給定。
+- `reid_by_track` 為可選欄位：會用 ArcFace 均值（閾值 0.85）或外觀均值（閾值 0.72）比對 identity db。
+- MediaPipe 初始化失敗時不報錯中斷，改用 YOLO 關節並在 `warnings` 註記。
 
 ---
 
 ## 限制
-- 本 Skill 需要較高準確度的姿勢預測模型（MediaPipe Holistic 或 equivalent）
-- 離線分析（課後）以確保準確度，不建議用於即時回饋
-- 若偵測到多位幼兒重疊（遮蔽），軌跡可能中斷，需標注「追蹤丟失」時間點
+- 指標屬近似代理，不等於臨床或正式量表。
+- 追蹤 ID 缺失、遮擋、低畫質都會降低穩定性；相關情況應體現在 `warnings`。

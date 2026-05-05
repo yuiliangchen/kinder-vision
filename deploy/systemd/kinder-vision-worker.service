@@ -1,0 +1,23 @@
+[Unit]
+Description=Kinder Vision Worker
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/kinder-vision
+EnvironmentFile=-/etc/kinder-vision/kinder-vision.env
+# Fallback defaults if EnvironmentFile not present:
+Environment=KINDER_MEMORY_DIR=/var/lib/kinder-vision/memory
+Environment=KINDER_TMP_DIR=/var/lib/kinder-vision/tmp
+# Optional LLM settings:
+# Environment=KINDER_LLM_API_KEY=...
+# Environment=KINDER_LLM_BASE_URL=https://api.openai.com/v1
+# Environment=KINDER_LLM_MODEL=gpt-4o-mini
+
+ExecStart=/opt/kinder-vision/.venv/bin/python -m kv /data/videos/input.mp4 --stride 4 --pose pose
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

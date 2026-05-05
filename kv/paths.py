@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pathlib
 
 
@@ -7,10 +8,20 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parent.parent
 
 
-def memory_dir() -> pathlib.Path:
-    p = repo_root() / "memory"
+def _dir_from_env(env_name: str, default: pathlib.Path) -> pathlib.Path:
+    raw = (os.environ.get(env_name) or "").strip()
+    if not raw:
+        p = default
+    else:
+        p = pathlib.Path(raw).expanduser()
+        if not p.is_absolute():
+            p = (repo_root() / p).resolve()
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def memory_dir() -> pathlib.Path:
+    return _dir_from_env("KINDER_MEMORY_DIR", repo_root() / "memory")
 
 
 def metrics_dir() -> pathlib.Path:
@@ -21,9 +32,7 @@ def metrics_dir() -> pathlib.Path:
 
 
 def tmp_dir() -> pathlib.Path:
-    p = repo_root() / "tmp"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+    return _dir_from_env("KINDER_TMP_DIR", repo_root() / "tmp")
 
 
 def identity_db_path() -> pathlib.Path:
