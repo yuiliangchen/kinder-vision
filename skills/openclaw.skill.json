@@ -1,0 +1,150 @@
+{
+  "kind": "openclaw_skill",
+  "name": "kinder-vision-api",
+  "version": "0.1.0",
+  "description": "Async video analytics skill backed by Kinder Vision FastAPI service.",
+  "base_url": "http://<VM_HOST_OR_IP>:8000",
+  "auth": {
+    "type": "header_api_key",
+    "header_name": "X-API-Key",
+    "header_value_env": "KINDER_API_KEY"
+  },
+  "defaults": {
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "poll_interval_sec": 5,
+    "poll_timeout_sec": 7200
+  },
+  "actions": [
+    {
+      "id": "health",
+      "method": "GET",
+      "path": "/health",
+      "request_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "service": { "type": "string" },
+          "task_ttl_sec": { "type": "integer" }
+        },
+        "required": ["ok", "service"]
+      }
+    },
+    {
+      "id": "start_analysis",
+      "method": "POST",
+      "path": "/analyze",
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "video_path": { "type": "string" },
+          "stride": { "type": "integer", "minimum": 1, "default": 4 },
+          "learn_identities": { "type": "boolean", "default": false },
+          "no_track": { "type": "boolean", "default": false },
+          "t0": { "type": ["string", "null"], "default": null },
+          "t1": { "type": ["string", "null"], "default": null },
+          "pose": { "type": "string", "enum": ["off", "pose", "holistic"], "default": "pose" },
+          "no_mediapipe": { "type": "boolean", "default": false },
+          "no_video_reid": { "type": "boolean", "default": false },
+          "no_llm": { "type": "boolean", "default": false },
+          "pdf": { "type": "boolean", "default": false },
+          "no_accumulate_sessions": { "type": "boolean", "default": false }
+        },
+        "required": ["video_path"]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "task_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["queued"] }
+        },
+        "required": ["ok", "task_id", "status"]
+      },
+      "async_task": {
+        "task_id_field": "task_id",
+        "status_action_id": "get_task",
+        "success_states": ["succeeded"],
+        "failure_states": ["failed", "cancelled"]
+      }
+    },
+    {
+      "id": "get_task",
+      "method": "GET",
+      "path": "/tasks/{task_id}",
+      "path_params": ["task_id"],
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string" }
+        },
+        "required": ["task_id"]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string" },
+          "status": { "type": "string", "enum": ["queued", "running", "succeeded", "failed", "cancelled"] },
+          "created_at": { "type": ["string", "null"] },
+          "started_at": { "type": ["string", "null"] },
+          "finished_at": { "type": ["string", "null"] },
+          "outputs": { "type": ["object", "null"] },
+          "error": { "type": ["object", "null"] }
+        },
+        "required": ["task_id", "status"]
+      }
+    },
+    {
+      "id": "list_tasks",
+      "method": "GET",
+      "path": "/tasks",
+      "query_params": ["limit"],
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 20 }
+        }
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "count": { "type": "integer" },
+          "items": { "type": "array" }
+        },
+        "required": ["count", "items"]
+      }
+    },
+    {
+      "id": "cancel_task",
+      "method": "POST",
+      "path": "/tasks/{task_id}/cancel",
+      "path_params": ["task_id"],
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string" }
+        },
+        "required": ["task_id"]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "task_id": { "type": "string" },
+          "status": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["ok", "task_id", "status"]
+      }
+    }
+  ],
+  "notes": [
+    "Replace base_url with your VM address.",
+    "If your OpenClaw runtime uses a different schema, map these fields accordingly."
+  ]
+}

@@ -8,6 +8,7 @@
 - VM 部署指南：`docs/deploy-vm.md`
 - Skill JSON 欄位範本：`docs/skill-json-schemas.md`
 - 環境變數範本：`.env.example`
+- OpenClaw 專用 skill 設定：`skills/openclaw.skill.json`
 
 ## 核心分析技術 (Core Analytics Technologies)
 
