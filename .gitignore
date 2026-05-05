@@ -3,3 +3,6 @@ memory/
 *.mp4
 *.MOV
 .DS_Store
+.venv/
+tmp/
+yolov8*.pt

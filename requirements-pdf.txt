@@ -1,0 +1,3 @@
+# 可選：Markdown 分析報告匯出 PDF（kv/report_pdf.py）
+markdown>=3.5
+weasyprint>=62.0

@@ -67,6 +67,57 @@ Kinder Vision 是一套結合 **電腦視覺 (Computer Vision)** 與 **教育心
 - **數據故事化**：將指標轉化為富有溫度的家長聯絡簿文字。
 - **進步見證**：自動比對歷史存檔，生成成長趨勢報告。
 
+## CLI 與環境變數（與程式對齊）
+
+### 安裝
+
+```bash
+pip install -r requirements.txt
+# 可選：ArcFace 臉嵌入（軌跡 ReID 與片中點身分較準）
+pip install -r requirements-insightface.txt
+# 可選：教育報告末段 LLM 補充（OpenAI 相容 API）
+pip install -r requirements-llm.txt
+```
+
+### 基本執行
+
+```bash
+python -m kv.cli <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+```
+
+常用參數（`--pose` 預設為 `pose`）：
+
+| 參數 | 說明 |
+|------|------|
+| `--stride` | 取樣幀間隔，越大越快、越粗。 |
+| `--learn-identities` | 無法比對時將新身分寫入 `memory/identity_features.db.json`。 |
+| `--no-track` | 停用 ByteTrack，改由左至右槽位對齊。 |
+| `--t0` / `--t1` | 只分析原片時間區間（需本機 `ffmpeg`）。 |
+| `--pose` | 人框內姿勢精化：`off`（僅 YOLO）、`pose`（MediaPipe Pose）、`holistic`（MediaPipe Holistic）。 |
+| `--no-mediapipe` | 等同 `--pose off`。 |
+| `--no-video-reid` | 停用整片軌跡 ReID（不產生 `micro.reid_by_track`）。 |
+| `--no-llm` | 不呼叫 LLM，報告不含「## 五、AI 教學補充建議」。 |
+
+MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會下載）。
+
+### LLM（教育報告第五節）
+
+實作見 `kv/llm_edu.py`。預設會**嘗試**在機讀報告生成後附加 LLM 段落；若無 API Key 或未安裝 `openai`，會靜默略過（或將提示寫入 `micro.llm_warnings`）。
+
+| 環境變數 | 說明 |
+|----------|------|
+| `KINDER_LLM_API_KEY` | 優先使用；未設則讀取 `OPENAI_API_KEY`。 |
+| `KINDER_LLM_BASE_URL` | OpenAI 相容 API 根網址，預設 `https://api.openai.com/v1`。 |
+| `KINDER_LLM_MODEL` | 模型名稱，預設 `gpt-4o-mini`。 |
+
+自架相容端點（如 vLLM、LiteLLM、Azure OpenAI 等）時，請設好 `KINDER_LLM_BASE_URL` 與對應的 `KINDER_LLM_API_KEY`。
+
+### 身分與軌跡 ReID
+
+- 片中點快照＋槽位：管線內 YOLO 取中間幀比對身分庫。
+- **整片 ByteTrack ReID**（預設開啟）：沿 `track_id` 累積 ArcFace（若已安裝 InsightFace）與上半身外觀嵌入，軌跡平均後比對；結果在 `kinder-micro-result.json` 的 `reid_by_track`，並優先合併到各 `children` 的 `student_id`。
+- 關閉軌跡 ReID：`--no-video-reid`。
+
 ---
 *最後更新：2026-05-05 | 技術開發：Antigravity AI*
 
