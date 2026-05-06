@@ -43,6 +43,7 @@
         "type": "object",
         "properties": {
           "video_path": { "type": "string" },
+          "model": { "type": "string", "default": "yolov8n-pose.pt" },
           "stride": { "type": "integer", "minimum": 1, "default": 4 },
           "learn_identities": { "type": "boolean", "default": false },
           "no_track": { "type": "boolean", "default": false },

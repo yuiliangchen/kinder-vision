@@ -99,7 +99,7 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${KINDER_API_KEY}" \
-  -d '{"video_path":"videos/demo.mp4","stride":4,"pose":"pose","no_llm":true}'
+  -d '{"video_path":"videos/demo.mp4","model":"yolov8n-pose.pt","stride":4,"pose":"pose","no_llm":true}'
 ```
 
 用回傳的 `task_id` 查詢：

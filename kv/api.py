@@ -17,6 +17,7 @@ from kv.paths import tmp_dir
 
 class AnalyzeRequest(BaseModel):
     video_path: str = Field(..., description="Path to input video file")
+    model: str = Field("yolov8n-pose.pt", description="YOLO model path or model name")
     stride: int = Field(4, ge=1, description="Frame sampling stride")
     learn_identities: bool = False
     no_track: bool = False
@@ -124,6 +125,7 @@ def _run_task(task_id: str, req: AnalyzeRequest) -> None:
     try:
         outputs = run_full_pipeline(
             Path(req.video_path),
+            model_path=req.model,
             sample_stride=req.stride,
             learn_identities=req.learn_identities,
             use_tracking=not req.no_track,

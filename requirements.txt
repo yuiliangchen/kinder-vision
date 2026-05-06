@@ -1,12 +1,13 @@
 # Kinder Vision — runtime stack aligned with SKILL.md / README
-numpy>=1.24,<3
-scipy>=1.11
-pandas>=2.0
-opencv-python-headless>=4.8
-librosa>=0.10
-soundfile>=0.12
-matplotlib>=3.7
-tqdm>=4.66
-ultralytics>=8.1
-lap>=0.5.12
-mediapipe>=0.10.14
+numpy==2.4.4
+scipy==1.17.1
+pandas==3.0.2
+opencv-python-headless==4.13.0.92
+librosa==0.11.0
+soundfile==0.13.1
+matplotlib==3.10.9
+tqdm==4.67.3
+ultralytics==8.4.46
+torch==2.11.0
+lap==0.5.13
+mediapipe==0.10.35

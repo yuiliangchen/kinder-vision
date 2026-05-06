@@ -93,9 +93,9 @@ pip install -r requirements-api.txt
 ### 基本執行
 
 ```bash
-python -m kv.cli <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+python -m kv.cli <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
 # 或使用模組入口（等價）
-python -m kv <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+python -m kv <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
 ```
 
 常用參數（`--pose` 預設為 `pose`）：
@@ -103,6 +103,7 @@ python -m kv <影片路徑> [--stride 4] [--learn-identities] [--no-track] [--t0
 | 參數 | 說明 |
 |------|------|
 | `--stride` | 取樣幀間隔，越大越快、越粗。 |
+| `--model` | YOLO 權重路徑或模型名（預設 `yolov8n-pose.pt`，可改成新版做 A/B）。 |
 | `--learn-identities` | 無法比對時將新身分寫入 `memory/identity_features.db.json`。 |
 | `--no-track` | 停用 ByteTrack，改由左至右槽位對齊。 |
 | `--t0` / `--t1` | 只分析原片時間區間（需本機 `ffmpeg`）。 |
@@ -149,6 +150,7 @@ curl -X POST http://127.0.0.1:8000/analyze \
   -H "X-API-Key: <your_key>" \
   -d '{
     "video_path": "videos/demo.mp4",
+    "model": "yolov8n-pose.pt",
     "stride": 4,
     "pose": "pose",
     "no_llm": true

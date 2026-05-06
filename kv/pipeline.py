@@ -121,6 +121,7 @@ def _pose_backend_label_zh(pose_backend: str | None) -> str:
 
 def run_full_pipeline(
     video_path: str | Path,
+    model_path: str = "yolov8n-pose.pt",
     sample_stride: int = 3,
     learn_identities: bool = False,
     use_tracking: bool = True,
@@ -162,7 +163,7 @@ def run_full_pipeline(
         export_video_segment(orig_video_path, win_t0_sec, win_t1_sec, segment_path)
         work_path = segment_path
 
-    model = YOLO("yolov8n-pose.pt")
+    model = YOLO(model_path)
     meta = read_video_meta(work_path)
     id_map = _identity_pass(work_path, model, learn_identities=learn_identities)
     _write_json(td / "kinder-identity-map.json", {"items": id_map})

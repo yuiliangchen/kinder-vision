@@ -9,6 +9,12 @@ from kv.pipeline import run_full_pipeline
 def main() -> None:
     p = argparse.ArgumentParser(description="Kinder Vision — 影片分析管線（README / SKILL 對齊）")
     p.add_argument("video", type=str, help="影片路徑（.mp4 / .mov / .avi）")
+    p.add_argument(
+        "--model",
+        type=str,
+        default="yolov8n-pose.pt",
+        help="YOLO 權重路徑或模型名（例：yolov8n-pose.pt、yolo26n-pose.pt）",
+    )
     p.add_argument("--stride", type=int, default=4, help="取樣幀間隔（越大越快、越粗）")
     p.add_argument(
         "--learn-identities",
@@ -71,6 +77,7 @@ def main() -> None:
 
     paths = run_full_pipeline(
         Path(args.video),
+        model_path=args.model,
         sample_stride=args.stride,
         learn_identities=args.learn_identities,
         use_tracking=not args.no_track,
