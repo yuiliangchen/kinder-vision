@@ -5,6 +5,13 @@ __pycache__/
 *.MOV
 .DS_Store
 .venv/
-.venv-*/
 tmp/
-yolov8*.pt
+*.pt
+
+# Local input media (keep usage note only)
+media/*
+!media/README.md
+
+# Generated report artifacts (do not push)
+reports/*-kinder-*.md
+reports/*-kinder-*.pdf
