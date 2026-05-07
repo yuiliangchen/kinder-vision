@@ -6,14 +6,14 @@
 
 - Python 3.10+
 - `ffmpeg`（區間切片需要）
-- 可寫入的資料目錄（`KINDER_MEMORY_DIR`、`KINDER_TMP_DIR`）
+- 可寫入的資料目錄（`KINDER_MEMORY_DIR`、`KINDER_TMP_DIR`、`KINDER_REPORTS_DIR`）
 
 ## 2) 一鍵安裝（建議）
 
 在專案根目錄執行：
 
 ```bash
-bash scripts/bootstrap_vm.sh
+bash deploy/scripts/bootstrap_vm.sh
 ```
 
 ## 3) 手動安裝
@@ -44,6 +44,7 @@ pip install -r requirements-api.txt
 ```bash
 export KINDER_MEMORY_DIR=/var/lib/kinder-vision/memory
 export KINDER_TMP_DIR=/var/lib/kinder-vision/tmp
+export KINDER_REPORTS_DIR=/var/lib/kinder-vision/reports
 ```
 
 LLM（可選）：
@@ -64,7 +65,7 @@ export KINDER_TASK_TTL_SEC=86400
 ## 5) 執行
 
 ```bash
-python -m kv "<video_path>" --stride 4 --pose pose
+python -m src "<video_path>" --stride 4 --pose pose
 ```
 
 常用選項：
@@ -78,13 +79,13 @@ python -m kv "<video_path>" --stride 4 --pose pose
 ## 6) 啟動 API（可選）
 
 ```bash
-uvicorn kv.api:app --host 0.0.0.0 --port 8000
+uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
 若要用 systemd 常駐（建議）：
 
 ```bash
-bash scripts/install_systemd.sh api
+bash deploy/scripts/install_systemd.sh api
 ```
 
 測試：
@@ -99,7 +100,7 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${KINDER_API_KEY}" \
-  -d '{"video_path":"videos/demo.mp4","model":"yolov8n-pose.pt","stride":4,"pose":"pose","no_llm":true}'
+  -d '{"video_path":"media/demo.mp4","model":"yolov8n-pose.pt","stride":4,"pose":"pose","no_llm":true}'
 ```
 
 用回傳的 `task_id` 查詢：
@@ -123,9 +124,18 @@ curl -X POST -H "X-API-Key: ${KINDER_API_KEY}" http://127.0.0.1:8000/tasks/<task
 ## 7) 產出位置
 
 - 暫存：`$KINDER_TMP_DIR`（未設定時為 `./tmp`）
-- 長期資料：`$KINDER_MEMORY_DIR`（未設定時為 `./memory`）
+- 身分與跨影片累積：`$KINDER_MEMORY_DIR`（未設定時為 `./memory`）
+- 分析報告與個別 metrics：`$KINDER_REPORTS_DIR`（未設定時為 `./reports`，其中 `metrics/` 為 per-child JSON）
+
+升級自舊版時，若曾有 `memory/metrics/*.json`，可手動搬到 `reports/metrics/`（或調整 `KINDER_REPORTS_DIR` 指到原目錄）。
 
 ## 8) 健康檢查與故障排除
+
+### Linux 套件 smoke test（建議先跑）
+
+```bash
+python -m src.scripts.smoke_linux
+```
 
 ### Smoke test（部署後先跑）
 
@@ -141,7 +151,7 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${KINDER_API_KEY}" \
-  -d '{"video_path":"/data/videos/demo.mp4","stride":4,"pose":"pose","no_llm":true}'
+  -d '{"video_path":"/data/media/demo.mp4","stride":4,"pose":"pose","no_llm":true}'
 ```
 
 3. 查詢任務：

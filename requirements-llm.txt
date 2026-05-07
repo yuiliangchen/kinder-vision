@@ -1,2 +1,2 @@
-# 可選：教育報告 LLM 段落（kv/llm_edu.py）
+# 可選：教育報告 LLM 段落（src/llm_edu.py）
 openai>=1.40.0

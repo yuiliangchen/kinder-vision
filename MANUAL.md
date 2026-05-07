@@ -22,7 +22,7 @@
 ```
 影片輸入
    ↓
-kinder-vision-core（任務調度中心）
+pipeline（任務調度，`src/pipeline.py`）
    ↓
 ┌──────────────┐
 │ 巨觀分析     │  → 隊形、熱區、互動密度、參與度
@@ -47,15 +47,15 @@ kinder-vision-core（任務調度中心）
    完整報告
 ```
 
-### 1.2 Skills 清單
+### 1.2 程式模組清單（詳見 `docs/agents/README.md`）
 
-| Skill | 功能說明 |
+| 模組 | 功能說明 |
 |-------|---------|
-| `kinder-vision-core` | 任務總調度，串聯整個分析流程 |
-| `kinder-macro-analytics` | 分析班級整體的隊形、空間使用、群體互動 |
-| `kinder-micro-analytics` | 分析個別幼兒的節奏同步、穩定度、流暢度 |
-| `kinder-metrics-checker` | 核查指標是否達標（紅/黃/綠燈） |
-| `kinder-edu-advisor` | 生成教育建議與家長聯絡簿文字 |
+| `pipeline` | 任務總調度，串聯整個分析流程 |
+| `macro_analytics` | 分析班級整體的隊形、空間使用、群體互動 |
+| `micro_analytics` | 分析個別幼兒的節奏同步、穩定度、流暢度 |
+| `metrics_checker` | 核查指標是否達標（紅/黃/綠燈） |
+| `edu_advisor` | 生成教育建議與家長聯絡簿文字 |
 
 ---
 
@@ -93,7 +93,7 @@ kinder-vision-core（任務調度中心）
 
 ```
 用戶：傳送影片 + 「幫我分析這段影片」
-系統：啟動 kinder-vision-core
+系統：啟動 pipeline（完整管線）
       → 依序執行 Macro → Micro → Metrics → Edu Advisor
       → 產出完整分析報告
 ```

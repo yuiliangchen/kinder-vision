@@ -1,5 +1,6 @@
-videos/
 memory/
+__pycache__/
+*.py[cod]
 *.mp4
 *.MOV
 .DS_Store

@@ -1,4 +1,4 @@
-# Kinder Vision — runtime stack aligned with SKILL.md / README
+# Kinder Vision — runtime stack aligned with docs/agents/*.md / README
 numpy==2.4.4
 scipy==1.17.1
 pandas==3.0.2

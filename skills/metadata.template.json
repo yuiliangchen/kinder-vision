@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "Analyze kindergarten movement videos and generate macro/micro/metrics/education reports.",
   "entrypoints": {
-    "analyze": "python -m kv \"${video_path}\"",
-    "check_metrics": "python -m kv \"${video_path}\" --no-llm",
-    "report_pdf": "python -m kv \"${video_path}\" --pdf"
+    "analyze": "python -m src \"${video_path}\"",
+    "check_metrics": "python -m src \"${video_path}\" --no-llm",
+    "report_pdf": "python -m src \"${video_path}\" --pdf"
   },
   "capabilities": [
     "video-analysis",

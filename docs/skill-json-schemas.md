@@ -1,8 +1,8 @@
 # Skill JSON Schemas (Canonical Examples)
 
-本文件集中維護各 `SKILL.md` 使用的 JSON 範例欄位，欄位命名以目前程式實作為準（`kv/*.py`）。
+本文件集中維護各 `docs/agents/*.md` 引用的 JSON 範例欄位，欄位命名以目前程式實作為準（`src/*.py`）。
 
-## Macro (`kinder-macro-analytics`)
+## Macro (`macro_analytics`)
 
 ```json
 {
@@ -34,7 +34,7 @@
 }
 ```
 
-## Micro (`kinder-micro-analytics`)
+## Micro (`micro_analytics`)
 
 ```json
 {
@@ -78,7 +78,7 @@
 }
 ```
 
-## Metrics (`kinder-metrics-checker`)
+## Metrics (`metrics_checker`)
 
 ```json
 {
@@ -134,7 +134,7 @@
 }
 ```
 
-## Identity Midframe Map (`kinder-identity-manager`)
+## Identity Midframe Map (`identity`)
 
 ```json
 {

@@ -38,4 +38,4 @@
 
 ---
 *報告生成：Kinder Vision AI 核心調度員*
-*數據存檔：[memory/2026-05-05_S_2026_015_metrics.json](file:///Users/roverchen/Documents/Apps/kinder-vision/memory/2026-05-05_S_2026_015_metrics.json)*
+*數據存檔：`reports/metrics/2026-05-05_S_2026_015_metrics.json`*

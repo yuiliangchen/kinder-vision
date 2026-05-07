@@ -4,9 +4,12 @@
 
 ## 開發維護索引
 
-- 程式檔與 Skill 對應（含高/中/低關聯度）：`SKILL_REVERSE_INDEX.md`
+- 程式檔與 agent 說明對應（含高/中/低關聯度）：`docs/AGENTS_REVERSE_INDEX.md`
+- Agent／維護者說明（檔名沿用模組名）：`docs/agents/README.md`
 - VM 部署指南：`docs/deploy-vm.md`
-- Skill JSON 欄位範本：`docs/skill-json-schemas.md`
+- 部署資源索引（腳本、`systemd` 範本）：`deploy/README.md`
+- 本地範例影片慣例：`media/demo.mp4`（說明見 `media/README.md`）
+- JSON 欄位範例（對齊 `docs/agents/*.md`）：`docs/skill-json-schemas.md`
 - 環境變數範本：`.env.example`
 - OpenClaw 專用 skill 設定：`skills/openclaw.skill.json`
 - OpenClaw workflow 範例：`skills/openclaw.workflow.json`
@@ -82,6 +85,8 @@ Kinder Vision 是一套結合 **電腦視覺 (Computer Vision)** 與 **教育心
 
 ```bash
 pip install -r requirements.txt
+# Linux/OpenClaw 草案（含平台條件）
+# pip install -r requirements-linux.txt
 # 可選：ArcFace 臉嵌入（軌跡 ReID 與片中點身分較準）
 pip install -r requirements-insightface.txt
 # 可選：教育報告末段 LLM 補充（OpenAI 相容 API）
@@ -93,9 +98,9 @@ pip install -r requirements-api.txt
 ### 基本執行
 
 ```bash
-python -m kv.cli <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+python -m src.cli <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
 # 或使用模組入口（等價）
-python -m kv <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
+python -m src <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-identities] [--no-track] [--t0 T] [--t1 T]
 ```
 
 常用參數（`--pose` 預設為 `pose`）：
@@ -114,11 +119,13 @@ python -m kv <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-iden
 | `--pdf` | 額外輸出合併 PDF（彙總 + 教育建議；需 `requirements-pdf.txt`）。 |
 | `--no-accumulate-sessions` | 不寫入跨影片累積檔 `memory/students/<id>/sessions.jsonl`。 |
 
+分析報告（同日 Markdown、PDF、`metrics/` 下個別 JSON）寫入 `reports/`；可設 `KINDER_REPORTS_DIR` 覆寫預設路徑（見 `.env.example`）。
+
 MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會下載）。
 
 ### LLM（教育報告第五節）
 
-實作見 `kv/llm_edu.py`。預設會**嘗試**在機讀報告生成後附加 LLM 段落；若無 API Key 或未安裝 `openai`，會靜默略過（或將提示寫入 `micro.llm_warnings`）。
+實作見 `src/llm_edu.py`。預設會**嘗試**在機讀報告生成後附加 LLM 段落；若無 API Key 或未安裝 `openai`，會靜默略過（或將提示寫入 `micro.llm_warnings`）。
 
 | 環境變數 | 說明 |
 |----------|------|
@@ -133,7 +140,7 @@ MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會
 啟動：
 
 ```bash
-uvicorn kv.api:app --host 0.0.0.0 --port 8000
+uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
 健康檢查：
@@ -149,7 +156,7 @@ curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <your_key>" \
   -d '{
-    "video_path": "videos/demo.mp4",
+    "video_path": "media/demo.mp4",
     "model": "yolov8n-pose.pt",
     "stride": 4,
     "pose": "pose",

@@ -11,32 +11,32 @@
        │
        ▼
 ┌──────────────────────┐
-│  kinder-vision-core  │  ← 任務調度中心
+│      pipeline        │  ← 任務調度（src/pipeline.py）
 └──────────┬───────────┘
            │
            ▼
 ┌──────────────────────────┐
-│ kinder-identity-manager  │  ← [NEW] 身分管理與 ReID 歸戶
+│       identity           │  ← 身分管理與 ReID 歸戶（src/identity.py）
 └──────────┬───────────────┘
            │
            ▼
 ┌──────────────────────────┐
-│  kinder-macro-analytics  │  ← 巨觀層分析（群體行為、熱區）
+│    macro_analytics       │  ← 巨觀層分析（src/macro_analytics.py）
 └──────────┬───────────────┘
            │
            ▼
 ┌──────────────────────────┐
-│  kinder-micro-analytics  │  ← 微觀層分析（個體同步、流暢度）
+│    micro_analytics       │  ← 微觀層分析（src/micro_analytics.py）
 └──────────┬───────────────┘
            │
            ▼
 ┌──────────────────────────┐
-│  kinder-metrics-checker  │  ← 指標核查與長期趨勢比對
+│    metrics_checker       │  ← 指標核查（src/metrics_checker.py）
 └──────────┬───────────────┘
            │
            ▼
 ┌──────────────────────────┐
-│    kinder-edu-advisor    │  ← 教育建議與個案成長報告生成
+│      edu_advisor         │  ← 教育建議（src/edu_advisor.py、llm_edu.py）
 └──────────────────────────┘
            │
            ▼
@@ -45,16 +45,16 @@
 
 ---
 
-## Skill 總覽
+## 模組總覽（說明見 `docs/agents/*.md`）
 
-| Skill 名稱 | 定位 | 輸入 | 輸出 |
+| Python 模組 | 定位 | 輸入 | 輸出 |
 |-----------|------|------|------|
-| `kinder-vision-core` | 任務中樞 | 影片檔案 | 完整分析流程調度 |
-| `kinder-identity-manager` | 身分管理員 | 影片 + 特徵資料庫 | 幼兒 ID 歸戶與 ReID 補償 |
-| `kinder-macro-analytics` | 巨觀觀察員 | 影片檔案 | 隊形/熱區/空間使用報告 |
-| `kinder-micro-analytics` | 微觀觀察員 | 影片 + 歸戶 ID | 同步度/穩定度/流暢度報告 |
-| `kinder-metrics-checker` | 品質把關者 | 多期分析數據 | 紅黃綠燈與成長趨勢核查 |
-| `kinder-edu-advisor` | 教育翻譯官 | 歷史數據集 | 個案成長報告、家長聯絡簿 |
+| `pipeline` | 任務中樞 | 影片檔案 | 完整分析流程調度 |
+| `identity` | 身分管理員 | 影片 + 特徵資料庫 | 幼兒 ID 歸戶與 ReID 補償 |
+| `macro_analytics` | 巨觀觀察員 | 影片檔案 | 隊形/熱區/空間使用報告 |
+| `micro_analytics` | 微觀觀察員 | 影片 + 歸戶 ID | 同步度/穩定度/流暢度報告 |
+| `metrics_checker` | 品質把關者 | 多期分析數據 | 紅黃綠燈與成長趨勢核查 |
+| `edu_advisor`（含 `llm_edu`） | 教育翻譯官 | 歷史數據集 | 個案成長報告、家長聯絡簿 |
 
 ---
 

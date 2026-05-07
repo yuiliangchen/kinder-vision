@@ -24,9 +24,9 @@ sudo systemctl start kinder-vision-worker.service
 或使用一鍵腳本（建議）：
 
 ```bash
-bash scripts/install_systemd.sh api
+bash deploy/scripts/install_systemd.sh api
 # 或
-bash scripts/install_systemd.sh worker
+bash deploy/scripts/install_systemd.sh worker
 ```
 
 3. 檢查狀態與日誌：
@@ -59,6 +59,7 @@ journalctl -u kinder-vision-api.service -f
 ```bash
 KINDER_MEMORY_DIR=/var/lib/kinder-vision/memory
 KINDER_TMP_DIR=/var/lib/kinder-vision/tmp
+KINDER_REPORTS_DIR=/var/lib/kinder-vision/reports
 KINDER_API_KEY=replace-with-strong-token
 KINDER_TASK_TTL_SEC=86400
 ```

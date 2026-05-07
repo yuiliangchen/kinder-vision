@@ -1,4 +1,4 @@
-# 可選：ArcFace 臉部向量（kinder-identity-manager / InsightFace）
+# 可選：ArcFace 臉部向量（identity / InsightFace）
 # pip install -r requirements-insightface.txt
 insightface>=0.7.3
 onnxruntime>=1.16.0
