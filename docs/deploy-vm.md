@@ -4,7 +4,7 @@
 
 ## 1) 系統需求
 
-- Python 3.10+
+- 建議使用 Miniconda + Python 3.11（MediaPipe 在 Python 3.13 上相容性較差）
 - `ffmpeg`（區間切片需要）
 - 可寫入的資料目錄（`KINDER_MEMORY_DIR`、`KINDER_TMP_DIR`、`KINDER_REPORTS_DIR`）
 
@@ -19,22 +19,29 @@ bash deploy/scripts/bootstrap_vm.sh
 ## 3) 手動安裝
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y python3 python3-venv python3-pip ffmpeg
+# 先檢查是否已有 ~/miniconda；有就直接用，沒有才安裝
+if [ -d "$HOME/miniconda" ]; then
+  echo "use existing miniconda"
+else
+  sudo apt-get update
+  sudo apt-get install -y curl bzip2 ffmpeg
+  curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh
+  bash /tmp/miniconda.sh -b -p "$HOME/miniconda"
+fi
 
-python3 -m venv .venv   # 僅使用專案根目錄的 .venv，勿另建對照環境
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+source "$HOME/miniconda/etc/profile.d/conda.sh"
+conda create -n kinder-vision-py311 -y python=3.11
+conda run -n kinder-vision-py311 python -m pip install --upgrade pip
+conda run -n kinder-vision-py311 pip install -r requirements.txt
 ```
 
 可選依賴：
 
 ```bash
-pip install -r requirements-insightface.txt
-pip install -r requirements-ai.txt
-pip install -r requirements-pdf.txt
-pip install -r requirements-api.txt
+conda run -n kinder-vision-py311 pip install -r requirements-insightface.txt
+conda run -n kinder-vision-py311 pip install -r requirements-ai.txt
+conda run -n kinder-vision-py311 pip install -r requirements-pdf.txt
+conda run -n kinder-vision-py311 pip install -r requirements-api.txt
 ```
 
 ## 4) 環境變數（VM 建議）
@@ -65,7 +72,7 @@ export KINDER_TASK_TTL_SEC=86400
 ## 5) 執行
 
 ```bash
-python -m src "<video_path>" --stride 4 --pose pose
+$HOME/miniconda/envs/kinder-vision-py311/bin/python -m src "<video_path>" --stride 4 --pose pose
 ```
 
 常用選項：
@@ -79,7 +86,7 @@ python -m src "<video_path>" --stride 4 --pose pose
 ## 6) 啟動 API（可選）
 
 ```bash
-uvicorn src.api:app --host 0.0.0.0 --port 8000
+$HOME/miniconda/envs/kinder-vision-py311/bin/uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
 若要用 systemd 常駐（建議）：
@@ -136,7 +143,7 @@ curl -X POST -H "X-API-Key: ${KINDER_API_KEY}" http://127.0.0.1:8000/tasks/<task
 ### Linux 套件 smoke test（建議先跑）
 
 ```bash
-python -m src.scripts.smoke_linux
+$HOME/miniconda/envs/kinder-vision-py311/bin/python -m src.scripts.smoke_linux
 ```
 
 ### Smoke test（部署後先跑）

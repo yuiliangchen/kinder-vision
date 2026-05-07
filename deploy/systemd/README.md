@@ -51,6 +51,7 @@ journalctl -u kinder-vision-api.service -f
 
 - 目前範本是「單次影片執行」形式，`ExecStart` 需改成你的實際影片來源策略。
 - API 範本預設監聽 `0.0.0.0:8000`，請配合防火牆與反向代理設定。
+- 範本 `ExecStart` 預設使用 Miniconda 環境：`/home/ubuntu/miniconda/envs/kinder-vision-py311/bin/...`。
 
 ## EnvironmentFile 範例
 

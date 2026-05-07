@@ -16,7 +16,7 @@ Environment=KINDER_REPORTS_DIR=/var/lib/kinder-vision/reports
 # Environment=KINDER_AI_BASE_URL=https://api.openai.com/v1
 # Environment=KINDER_AI_MODEL=gpt-4o-mini
 
-ExecStart=/opt/kinder-vision/.venv/bin/python -m src /data/media/input.mp4 --stride 4 --pose pose
+ExecStart=/home/ubuntu/miniconda/envs/kinder-vision-py311/bin/python -m src /data/media/input.mp4 --stride 4 --pose pose
 Restart=on-failure
 RestartSec=5
 
