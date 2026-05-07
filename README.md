@@ -83,6 +83,8 @@ Kinder Vision 是一套結合 **電腦視覺 (Computer Vision)** 與 **教育心
 
 ### 安裝
 
+請在本機只使用專案根目錄的 **`.venv`**（不要用其它對照用虛擬環境目錄）：先 `python3 -m venv .venv`，再 `source .venv/bin/activate`，下列指令皆在此環境內執行。
+
 ```bash
 pip install -r requirements.txt
 # Linux/OpenClaw 草案（含平台條件）

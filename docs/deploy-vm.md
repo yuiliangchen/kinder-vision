@@ -22,7 +22,7 @@ bash deploy/scripts/bootstrap_vm.sh
 sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip ffmpeg
 
-python3 -m venv .venv
+python3 -m venv .venv   # 僅使用專案根目錄的 .venv，勿另建對照環境
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
