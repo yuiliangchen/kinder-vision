@@ -14,7 +14,7 @@
 5. 合併身分（優先軌跡 ReID，再回退中間幀槽位）。
 6. 計算 metrics（紅黃綠燈與關注名單）。
 7. 產出教育建議 markdown，可選附加 LLM 第五節。
-8. 寫入 `tmp/`、`reports/`（含 `reports/metrics/`、`reports/students/.../sessions.jsonl`），可選輸出 PDF。
+8. 寫入 `tmp/`、`reports/`（含 `reports/metrics/`、`reports/students/.../longitudinal-report.*`），跨影片累積寫入 `memory/students/.../sessions.jsonl`，可選輸出 PDF。
 
 ---
 
@@ -37,8 +37,8 @@
 - 臨時輸出：`tmp/kinder-*.json|.md|.png|.pdf`
 - 報告歸檔：`reports/YYYY-MM-DD-kinder-*.md`（以及可選 `reports/<timestamp>-kinder-report.pdf`）
 - 個別 metrics：`reports/metrics/YYYY-MM-DD_<student_id>_metrics.json`
-- 身分資料庫：`memory/identity_features.db.json`
-- 跨影片累積與個人長期報告：`reports/students/<student_id>/`（含 `sessions.jsonl`、`longitudinal-report.md` 等）
+- 身分與跨影片累積：`memory/identity_features.db.json`、`memory/students/<student_id>/sessions.jsonl`
+- 個人長期報告（產生）：`reports/students/<student_id>/longitudinal-report.md`（可選 PDF）
 
 ---
 

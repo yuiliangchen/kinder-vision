@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from src.report_pdf import export_markdown_pdf
+from src.paths import student_reports_dir
 from src.student_longitudinal import (
     list_student_slugs,
     load_sessions,
     sessions_jsonl_path,
     student_slug,
-    students_dir,
 )
 
 
@@ -38,7 +38,7 @@ def render_longitudinal_markdown(student_id: str) -> str:
         f"# 個人長期分析：{name}",
         "",
         f"- **查詢鍵**：`{student_id}`",
-        f"- **儲存目錄（slug）**：`reports/students/{sid}/`",
+        f"- **報告輸出目錄**：`reports/students/{sid}/`",
         f"- **累積次數**：{len(sessions)} 支影片／分析 run",
         "",
         "## 各次表現總表",
@@ -87,7 +87,7 @@ def render_longitudinal_markdown(student_id: str) -> str:
         "",
         "---",
         "",
-        "*資料來源：`reports/students/` 下該身分之 `sessions.jsonl`。*",
+        "*資料來源：`memory/students/` 下該身分之 `sessions.jsonl`。*",
     ]
     return "\n".join(lines)
 
@@ -101,7 +101,7 @@ def write_longitudinal_report(student_id: str, out_md: Path) -> Path:
 
 def _generate_one(student_id: str, *, out_md: Path | None, emit_pdf: bool) -> tuple[Path, Path | None]:
     slug = student_slug(student_id)
-    md_path = out_md or (students_dir() / slug / "longitudinal-report.md")
+    md_path = out_md or (student_reports_dir() / slug / "longitudinal-report.md")
     path = write_longitudinal_report(student_id, md_path)
     pdf_path: Path | None = None
     if emit_pdf:
@@ -122,7 +122,7 @@ def main() -> None:
     p.add_argument(
         "--all",
         action="store_true",
-        help="為 reports/students/*/sessions.jsonl 有資料的每位孩子各產生一份報告",
+        help="為 memory/students/*/sessions.jsonl 有資料的每位孩子各產生一份報告",
     )
     p.add_argument(
         "--out",

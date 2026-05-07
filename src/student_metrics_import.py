@@ -1,4 +1,4 @@
-"""將既有的 reports/metrics/*_metrics.json 批次匯入 reports/students/<id>/sessions.jsonl。"""
+"""將既有的 reports/metrics/*_metrics.json 批次匯入 memory/students/<id>/sessions.jsonl。"""
 from __future__ import annotations
 
 import argparse

@@ -119,7 +119,7 @@ python -m src <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-ide
 | `--no-video-reid` | 停用整片軌跡 ReID（不產生 `micro.reid_by_track`）。 |
 | `--no-llm` | 不呼叫 LLM，報告不含「## 五、AI 教學補充建議」。 |
 | `--pdf` | 額外輸出合併 PDF（彙總 + 教育建議；需 `requirements-pdf.txt`）。 |
-| `--no-accumulate-sessions` | 不寫入跨影片累積檔 `reports/students/<id>/sessions.jsonl`。 |
+| `--no-accumulate-sessions` | 不寫入跨影片累積檔 `memory/students/<id>/sessions.jsonl`。 |
 
 分析報告（同日 Markdown、PDF、`metrics/` 下個別 JSON）寫入 `reports/`；可設 `KINDER_REPORTS_DIR` 覆寫預設路徑（見 `.env.example`）。
 
