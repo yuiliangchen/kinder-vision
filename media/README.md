@@ -1,5 +1,7 @@
 # media / 本地影音素材
 
+舊版若使用專案根目錄的 **`videos/`**，請改將檔案放在此 **`media/`** 目錄（本機路徑可再用 `video_path` 指向檔名）。
+
 文件與 API 範例多以 **`media/demo.mp4`** 為慣例路徑；`video_path` 仍可為任意相對／絕對路徑。
 
 ## `demo.mp4`
