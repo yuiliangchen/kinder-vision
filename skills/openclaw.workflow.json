@@ -8,7 +8,7 @@
     "model": "yolov8n-pose.pt",
     "stride": 4,
     "pose": "pose",
-    "no_llm": true,
+    "no_ai": true,
     "timeout_sec": 7200,
     "poll_interval_sec": 5
   },
@@ -23,7 +23,7 @@
         "model": "{{inputs.model}}",
         "stride": "{{inputs.stride}}",
         "pose": "{{inputs.pose}}",
-        "no_llm": "{{inputs.no_llm}}"
+        "no_ai": "{{inputs.no_ai}}"
       },
       "save_as": "start_result"
     },

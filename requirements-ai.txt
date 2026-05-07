@@ -1,0 +1,2 @@
+# 可選：教育報告 AI 段落（src/ai_edu.py）
+openai>=1.40.0

@@ -4,7 +4,7 @@
   "description": "Analyze kindergarten movement videos and generate macro/micro/metrics/education reports.",
   "entrypoints": {
     "analyze": "python -m src \"${video_path}\"",
-    "check_metrics": "python -m src \"${video_path}\" --no-llm",
+    "check_metrics": "python -m src \"${video_path}\" --no-ai",
     "report_pdf": "python -m src \"${video_path}\" --pdf"
   },
   "capabilities": [

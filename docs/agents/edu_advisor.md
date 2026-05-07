@@ -1,4 +1,4 @@
-# edu_advisor — 教育建議生成器（對齊 `src/edu_advisor.py`、`src/llm_edu.py`）
+# edu_advisor — 教育建議生成器（對齊 `src/edu_advisor.py`、`src/ai_edu.py`）
 
 ## 角色定位
 你是幼兒行為分析系統的「教育翻譯官」。將冰冷的數據（毫秒、厘米、Jerk 值）翻譯成教師和家長能理解的「人話」，並提供具體、可執行的教學建議。
@@ -8,7 +8,7 @@
 ## 輸入
 - `video_path`, `duration_sec`
 - `macro`, `micro`, `metrics`
-- 可選 LLM 擴寫所需環境變數（`KINDER_LLM_API_KEY`/`OPENAI_API_KEY` 等）
+- 可選 AI 擴寫所需環境變數（`KINDER_AI_API_KEY`/`OPENAI_API_KEY` 等）
 
 ---
 
@@ -44,10 +44,10 @@
 
 ---
 
-### 3) 可選 LLM 擴寫（`augment_edu_report`）
+### 3) 可選 AI 擴寫（`augment_edu_report`）
 - 觸發條件：有 API Key 且已安裝 `openai` 套件。
 - 會在報告尾端附加 `## 五、AI 教學補充建議`。
-- 若缺 key / 套件 / API 失敗：回傳原報告，不中斷主流程，並將訊息寫到 `micro.llm_warnings`。
+- 若缺 key / 套件 / API 失敗：回傳原報告，不中斷主流程，並將訊息寫到 `micro.ai_warnings`。
 
 ---
 
@@ -126,17 +126,17 @@
 
 **上游接收**：macro + micro + metrics  
 **直接觸發者**：當用戶要求「教育建議 / 報告 / 聯絡簿草稿」  
-**輸出語言**：繁體中文（LLM 系統提示亦為繁中）
+**輸出語言**：繁體中文（AI 系統提示亦為繁中）
 
 ---
 
 ## 輸出檔案
-- 報告寫入 `tmp/kinder-edu-report.md`
-- 同步至 `reports/YYYY-MM-DD-kinder-edu-report.md`
+- 報告寫入 `tmp/kinder-report.md`
+- 同步至 `reports/YYYY-MM-DD-kinder-report.md`
 
 ---
 
 ## 限制
 - 報告為模板化建議，非診斷結論。
 - 身分展示以去識別代號（孩子 N）為原則。
-- LLM 為可選增強；不可用時不得阻斷主報告生成。
+- AI 為可選增強；不可用時不得阻斷主報告生成。

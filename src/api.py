@@ -26,7 +26,7 @@ class AnalyzeRequest(BaseModel):
     pose: str = Field("pose", pattern="^(off|pose|holistic)$")
     no_mediapipe: bool = False
     no_video_reid: bool = False
-    no_llm: bool = False
+    no_ai: bool = False
     pdf: bool = False
     no_accumulate_sessions: bool = False
 
@@ -133,7 +133,7 @@ def _run_task(task_id: str, req: AnalyzeRequest) -> None:
             t1=req.t1,
             use_mediapipe=False if req.no_mediapipe else True,
             pose_mode=req.pose,
-            use_llm=not req.no_llm,
+            use_llm=not req.no_ai,
             use_video_reid=not req.no_video_reid,
             emit_pdf=req.pdf,
             accumulate_sessions=not req.no_accumulate_sessions,

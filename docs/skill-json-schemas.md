@@ -73,8 +73,8 @@
       "source": "arcface_track_mean"
     }
   },
-  "llm_warnings": [],
-  "llm_section_appended": false
+  "ai_warnings": [],
+  "ai_section_appended": false
 }
 ```
 

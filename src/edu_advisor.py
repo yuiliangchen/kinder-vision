@@ -16,35 +16,38 @@ def render_edu_markdown(
     macro: dict[str, Any],
     micro: dict[str, Any],
     metrics: dict[str, Any],
+    include_meta: bool = True,
 ) -> str:
     mm = int(duration_sec // 60)
     ss = int(duration_sec % 60)
-    lines = [
-        "# 🌟 幼兒行為分析教育建議報告",
-        "",
-        f"**分析日期**：{datetime.now().strftime('%Y-%m-%d')}",
-        f"**影片**：`{video_path}`",
-        f"**本次分析片長**：{mm} 分 {ss} 秒（實際送入模型的影片長度）",
-    ]
-    win = micro.get("analysis_window_original")
-    if win:
-        lines.append(f"**分析區間**（對應原片時間線）：{win}")
-    pose_b = micro.get("pose_backend", "yolo_only")
-    if pose_b == "yolo+mediapipe_holistic":
-        pose_line = "YOLO 關節 + MediaPipe Holistic（人框內精化）"
-    elif pose_b in ("yolo+mediapipe", "yolo+mediapipe_pose"):
-        pose_line = "YOLO 關節 + MediaPipe Pose（於人框內精化）"
-    else:
-        pose_line = "僅 YOLO 關節"
-    lines.append(
-        f"**追蹤模式**：{_tracking_label_zh(micro)}；取樣 `vid_stride` = {micro.get('vid_stride', '—')}"
-    )
-    lines.append(f"**姿勢後端**：{pose_line}（`pose_backend` = `{pose_b}`）")
-    reid_n = len(micro.get("reid_by_track") or {})
-    if reid_n:
-        lines.append(f"**軌跡 ReID**：已對 {reid_n} 條 ByteTrack 軌跡與身分庫比對（整片累積嵌入）。")
+    lines = ["# 🌟 幼兒行為分析教育建議報告", ""]
+    if include_meta:
+        lines += [
+            f"**分析日期**：{datetime.now().strftime('%Y-%m-%d')}",
+            f"**影片**：`{video_path}`",
+            f"**本次分析片長**：{mm} 分 {ss} 秒（實際送入模型的影片長度）",
+        ]
+        win = micro.get("analysis_window_original")
+        if win:
+            lines.append(f"**分析區間**（對應原片時間線）：{win}")
+        pose_b = micro.get("pose_backend", "yolo_only")
+        if pose_b == "yolo+mediapipe_holistic":
+            pose_line = "YOLO 關節 + MediaPipe Holistic（人框內精化）"
+        elif pose_b in ("yolo+mediapipe", "yolo+mediapipe_pose"):
+            pose_line = "YOLO 關節 + MediaPipe Pose（於人框內精化）"
+        else:
+            pose_line = "僅 YOLO 關節"
+        lines.append(
+            f"**追蹤模式**：{_tracking_label_zh(micro)}；取樣 `vid_stride` = {micro.get('vid_stride', '—')}"
+        )
+        lines.append(f"**姿勢後端**：{pose_line}（`pose_backend` = `{pose_b}`）")
+        reid_n = len(micro.get("reid_by_track") or {})
+        if reid_n:
+            lines.append(f"**軌跡 ReID**：已對 {reid_n} 條 ByteTrack 軌跡與身分庫比對（整片累積嵌入）。")
+    # Normalize heading spacing so merged reports keep exactly one blank line.
+    while lines and lines[-1] == "":
+        lines.pop()
     lines += [
-        "",
         "---",
         "",
         "## 一、班級整體回饋",

@@ -47,8 +47,8 @@
 - **原理**：將幼兒臉部特徵轉化為去識別化的特徵向量（Embedding），實現跨時段數據歸戶。
 - **指標**：跨日成長趨勢、個案動作流暢度改善曲線。
 
-### 6. LLM 增強型教育建議 (LLM-Enhanced Advisor)
-- **技術**：Large Language Model (LLM) 數據翻譯引擎。
+### 6. AI 教育建議 (AI-Enhanced Advisor)
+- **技術**：Large Language Model (AI) 數據翻譯引擎。
 - **原理**：將微觀與巨觀數據（如誤差 ms、位移 cm）轉譯為富有教育意義且具溫度的自然語言報告。
 - **指標**：班級整體亮點、個案進步見證、具體家庭互動建議。
 
@@ -56,7 +56,7 @@
 - **Macro 分析**：YOLOv8-Pose (群體追蹤、隊形偵測)
 - **Micro 分析**：MediaPipe Holistic (個體精細動作)
 - **身分識別**：InsightFace / ArcFace (ReID & Edge Recovery)
-- **報告生成**：LLM-Enhanced Generator
+- **報告生成**：AI-Enhanced Generator
 - **音訊處理**：librosa (BPM 與靜音偵測)
 
 ## 系統技術總結 (v2.1 Summary)
@@ -75,7 +75,7 @@ Kinder Vision 是一套結合 **電腦視覺 (Computer Vision)** 與 **教育心
 - **Inhibitory Control**：測量靜止穩定度（位移 cm），評估衝動調節能力。
 - **Movement Fluency**：應用 **Jerk Analysis** 評估肢體發育協調性。
 
-### 4. LLM 增強型教育溝通
+### 4. AI 教育溝通
 - **數據故事化**：將指標轉化為富有溫度的家長聯絡簿文字。
 - **進步見證**：自動比對歷史存檔，生成成長趨勢報告。
 
@@ -91,8 +91,8 @@ pip install -r requirements.txt
 # pip install -r requirements-linux.txt
 # 可選：ArcFace 臉嵌入（軌跡 ReID 與片中點身分較準）
 pip install -r requirements-insightface.txt
-# 可選：教育報告末段 LLM 補充（OpenAI 相容 API）
-pip install -r requirements-llm.txt
+# 可選：教育報告末段 AI 補充（OpenAI 相容 API）
+pip install -r requirements-ai.txt
 # 可選：HTTP API（FastAPI + Uvicorn）
 pip install -r requirements-api.txt
 ```
@@ -117,7 +117,7 @@ python -m src <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-ide
 | `--pose` | 人框內姿勢精化：`off`（僅 YOLO）、`pose`（MediaPipe Pose）、`holistic`（MediaPipe Holistic）。 |
 | `--no-mediapipe` | 等同 `--pose off`。 |
 | `--no-video-reid` | 停用整片軌跡 ReID（不產生 `micro.reid_by_track`）。 |
-| `--no-llm` | 不呼叫 LLM，報告不含「## 五、AI 教學補充建議」。 |
+| `--no-ai` | 不呼叫 AI，報告不含「## 五、AI 教學補充建議」。 |
 | `--pdf` | 額外輸出合併 PDF（彙總 + 教育建議；需 `requirements-pdf.txt`）。 |
 | `--no-accumulate-sessions` | 不寫入跨影片累積檔 `memory/students/<id>/sessions.jsonl`。 |
 
@@ -125,17 +125,17 @@ python -m src <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-ide
 
 MediaPipe `.task` 模型會快取於 `~/.cache/kinder-vision/`（首次執行會下載）。
 
-### LLM（教育報告第五節）
+### AI（教育報告第五節）
 
-實作見 `src/llm_edu.py`。預設會**嘗試**在機讀報告生成後附加 LLM 段落；若無 API Key 或未安裝 `openai`，會靜默略過（或將提示寫入 `micro.llm_warnings`）。
+實作見 `src/ai_edu.py`。預設會**嘗試**在機讀報告生成後附加 AI 段落；若無 API Key 或未安裝 `openai`，會靜默略過（或將提示寫入 `micro.ai_warnings`）。
 
 | 環境變數 | 說明 |
 |----------|------|
-| `KINDER_LLM_API_KEY` | 優先使用；未設則讀取 `OPENAI_API_KEY`。 |
-| `KINDER_LLM_BASE_URL` | OpenAI 相容 API 根網址，預設 `https://api.openai.com/v1`。 |
-| `KINDER_LLM_MODEL` | 模型名稱，預設 `gpt-4o-mini`。 |
+| `KINDER_AI_API_KEY` | 優先使用；未設則讀取 `OPENAI_API_KEY`。 |
+| `KINDER_AI_BASE_URL` | OpenAI 相容 API 根網址，預設 `https://api.openai.com/v1`。 |
+| `KINDER_AI_MODEL` | 模型名稱，預設 `gpt-4o-mini`。 |
 
-自架相容端點（如 vLLM、LiteLLM、Azure OpenAI 等）時，請設好 `KINDER_LLM_BASE_URL` 與對應的 `KINDER_LLM_API_KEY`。
+自架相容端點（如 vLLM、LiteLLM、Azure OpenAI 等）時，請設好 `KINDER_AI_BASE_URL` 與對應的 `KINDER_AI_API_KEY`。
 
 ### HTTP API（可部署到 VM）
 
@@ -162,7 +162,7 @@ curl -X POST http://127.0.0.1:8000/analyze \
     "model": "yolov8n-pose.pt",
     "stride": 4,
     "pose": "pose",
-    "no_llm": true
+    "no_ai": true
   }'
 ```
 

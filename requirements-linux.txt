@@ -14,7 +14,7 @@ soundfile==0.13.1
 matplotlib==3.10.9
 tqdm==4.67.3
 lap==0.5.13
-ultralytics==8.4.46
+ultralytics==8.4.47
 
 # PyTorch:
 # - CPU default on Linux (adjust for CUDA as needed).

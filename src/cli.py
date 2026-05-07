@@ -57,9 +57,9 @@ def main() -> None:
         help="停用整片軌跡 ReID（ArcFace／外觀嵌入軌跡平均）",
     )
     p.add_argument(
-        "--no-llm",
+        "--no-ai",
         action="store_true",
-        help="不在教育報告末段呼叫 LLM（需 API Key 與 requirements-llm）",
+        help="不在教育報告末段呼叫 AI（需 API Key 與 requirements-ai）",
     )
     p.add_argument(
         "--pdf",
@@ -85,7 +85,7 @@ def main() -> None:
         t1=args.t1,
         use_mediapipe=False if args.no_mediapipe else True,
         pose_mode=pose_mode,
-        use_llm=not args.no_llm,
+        use_llm=not args.no_ai,
         use_video_reid=not args.no_video_reid,
         emit_pdf=args.pdf,
         accumulate_sessions=not args.no_accumulate_sessions,

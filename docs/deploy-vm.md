@@ -32,7 +32,7 @@ pip install -r requirements.txt
 
 ```bash
 pip install -r requirements-insightface.txt
-pip install -r requirements-llm.txt
+pip install -r requirements-ai.txt
 pip install -r requirements-pdf.txt
 pip install -r requirements-api.txt
 ```
@@ -47,12 +47,12 @@ export KINDER_TMP_DIR=/var/lib/kinder-vision/tmp
 export KINDER_REPORTS_DIR=/var/lib/kinder-vision/reports
 ```
 
-LLM（可選）：
+AI（可選）：
 
 ```bash
-export KINDER_LLM_API_KEY=...
-export KINDER_LLM_BASE_URL=https://api.openai.com/v1
-export KINDER_LLM_MODEL=gpt-4o-mini
+export KINDER_AI_API_KEY=...
+export KINDER_AI_BASE_URL=https://api.openai.com/v1
+export KINDER_AI_MODEL=gpt-4o-mini
 ```
 
 API 安全與任務保留（建議）：
@@ -72,7 +72,7 @@ python -m src "<video_path>" --stride 4 --pose pose
 
 - `--no-track`
 - `--no-video-reid`
-- `--no-llm`
+- `--no-ai`
 - `--pdf`
 - `--no-accumulate-sessions`
 
@@ -100,7 +100,7 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${KINDER_API_KEY}" \
-  -d '{"video_path":"media/demo.mp4","model":"yolov8n-pose.pt","stride":4,"pose":"pose","no_llm":true}'
+  -d '{"video_path":"media/demo.mp4","model":"yolov8n-pose.pt","stride":4,"pose":"pose","no_ai":true}'
 ```
 
 用回傳的 `task_id` 查詢：
@@ -153,7 +153,7 @@ curl http://127.0.0.1:8000/health
 curl -X POST http://127.0.0.1:8000/analyze \
   -H "Content-Type: application/json" \
   -H "X-API-Key: ${KINDER_API_KEY}" \
-  -d '{"video_path":"/data/media/demo.mp4","stride":4,"pose":"pose","no_llm":true}'
+  -d '{"video_path":"/data/media/demo.mp4","stride":4,"pose":"pose","no_ai":true}'
 ```
 
 3. 查詢任務：
@@ -181,6 +181,6 @@ done
 
 - `ffmpeg` 找不到：`ffmpeg -version`
 - Python 套件問題：`python -m pip list`
-- LLM 無輸出：檢查 `KINDER_LLM_API_KEY` 與 `requirements-llm.txt` 是否已安裝
+- AI 無輸出：檢查 `KINDER_AI_API_KEY` 與 `requirements-ai.txt` 是否已安裝
 - MediaPipe 不可用：流程會回退僅 YOLO，並在 `micro.warnings` 記錄原因
 - API 重啟後任務仍可查：狀態保存在 `tmp/kinder-api-tasks.json`（中斷中的任務會標記為 cancelled）

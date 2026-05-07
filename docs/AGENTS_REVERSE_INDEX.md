@@ -73,7 +73,7 @@
 - `src/edu_advisor.py`
   - `高` `docs/agents/edu_advisor.md`
   - `中` `docs/agents/cli.md`
-- `src/llm_edu.py`
+- `src/ai_edu.py`
   - `高` `docs/agents/edu_advisor.md`
 - `src/student_report.py`
   - `中` `docs/agents/edu_advisor.md`

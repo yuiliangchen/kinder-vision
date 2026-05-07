@@ -13,7 +13,7 @@
 4. 執行 micro（節奏同步、停止後位移、jerk、軌跡圖）。
 5. 合併身分（優先軌跡 ReID，再回退中間幀槽位）。
 6. 計算 metrics（紅黃綠燈與關注名單）。
-7. 產出教育建議 markdown，可選附加 LLM 第五節。
+7. 產出教育建議 markdown，可選附加 AI 第五節。
 8. 寫入 `tmp/`、`reports/`（含 `reports/metrics/`、`reports/students/.../longitudinal-report.*`），跨影片累積寫入 `memory/students/.../sessions.jsonl`，可選輸出 PDF。
 
 ---
@@ -23,13 +23,13 @@
 - 「看巨觀/隊形/熱區」 -> 讀 `kinder-macro-result.json`。
 - 「看個體節奏/穩定/流暢」 -> 讀 `kinder-micro-result.json`。
 - 「達標嗎」 -> 讀 `kinder-metrics-check.json`。
-- 「給教學建議 / 聯絡簿」 -> 讀 `kinder-edu-report.md`。
+- 「給教學建議 / 聯絡簿」 -> 讀 `kinder-report.md`。
 
 ---
 
 ## CLI 對齊重點
 - 入口：`python -m src.cli <video>`（或 `python -m src <video>`）。
-- 常用開關：`--stride`、`--t0/--t1`、`--no-track`、`--pose off|pose|holistic`、`--no-video-reid`、`--learn-identities`、`--no-llm`、`--pdf`、`--no-accumulate-sessions`。
+- 常用開關：`--stride`、`--t0/--t1`、`--no-track`、`--pose off|pose|holistic`、`--no-video-reid`、`--learn-identities`、`--no-ai`、`--pdf`、`--no-accumulate-sessions`。
 
 ---
 
@@ -44,5 +44,5 @@
 
 ## 原則
 1. 嚴守去識別化：對外顯示「孩子 N」。
-2. 明確標記 fallback：追蹤失敗、MediaPipe 不可用、LLM 不可用都要寫 warnings。
+2. 明確標記 fallback：追蹤失敗、MediaPipe 不可用、AI 不可用都要寫 warnings。
 3. 報告僅供教學輔助，不替代教師專業判斷。

@@ -12,10 +12,10 @@ Environment=KINDER_MEMORY_DIR=/var/lib/kinder-vision/memory
 Environment=KINDER_TMP_DIR=/var/lib/kinder-vision/tmp
 Environment=KINDER_REPORTS_DIR=/var/lib/kinder-vision/reports
 Environment=KINDER_TASK_TTL_SEC=86400
-# Optional LLM settings:
-# Environment=KINDER_LLM_API_KEY=...
-# Environment=KINDER_LLM_BASE_URL=https://api.openai.com/v1
-# Environment=KINDER_LLM_MODEL=gpt-4o-mini
+# Optional AI settings:
+# Environment=KINDER_AI_API_KEY=...
+# Environment=KINDER_AI_BASE_URL=https://api.openai.com/v1
+# Environment=KINDER_AI_MODEL=gpt-4o-mini
 
 ExecStart=/opt/kinder-vision/.venv/bin/uvicorn src.api:app --host 0.0.0.0 --port 8000
 Restart=on-failure

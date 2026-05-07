@@ -40,7 +40,7 @@
 
 ### Step 6: 指標核查與教育建議
 - `src.metrics_checker.run_metrics(macro, micro)` -> `tmp/kinder-metrics-check.json`。
-- `src.edu_advisor.render_edu_markdown(...)` -> `tmp/kinder-edu-report.md`。
+- `src.edu_advisor.render_edu_markdown(...)` -> `tmp/kinder-report.md`。
 - 若 `use_llm=True`，嘗試附加「## 五、AI 教學補充建議」（無 key 或套件缺失會靜默略過並紀錄 warning）。
 
 ### Step 7: 歸檔與可選 PDF
@@ -56,8 +56,8 @@
 - `tmp/kinder-macro-result.json`
 - `tmp/kinder-micro-result.json`
 - `tmp/kinder-metrics-check.json`
-- `tmp/kinder-edu-report.md`
-- `reports/YYYY-MM-DD-kinder-analysis.md`
+- `tmp/kinder-report.md`
+- `reports/YYYY-MM-DD-kinder-report.md`（含前置自動彙總段落 + 教育建議）
 
 ---
 

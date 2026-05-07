@@ -9,9 +9,9 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from src import edu_advisor, face_insight, identity, llm_edu, macro_analytics, metrics_checker, micro_analytics
+from src import edu_advisor, face_insight, identity, ai_edu, macro_analytics, metrics_checker, micro_analytics
 from src import student_longitudinal
-from src.report_pdf import export_combined_report_pdf
+from src.report_pdf import export_markdown_pdf
 from src.paths import memory_dir, metrics_dir, reports_dir, tmp_dir
 from src.timecode import format_mmss, parse_timecode
 from src.video_ingest import load_audio_mono, read_video_meta
@@ -208,9 +208,16 @@ def run_full_pipeline(
 
     metrics = metrics_checker.run_metrics(macro, micro)
 
-    edu_md = edu_advisor.render_edu_markdown(str(orig_video_path), meta.duration_sec, macro, micro, metrics)
+    edu_md = edu_advisor.render_edu_markdown(
+        str(orig_video_path),
+        meta.duration_sec,
+        macro,
+        micro,
+        metrics,
+        include_meta=False,
+    )
     if use_llm:
-        edu_md, llm_warn, llm_used = llm_edu.augment_edu_report(
+        edu_md, llm_warn, llm_used = ai_edu.augment_edu_report(
             edu_md,
             video_path=str(orig_video_path),
             duration_sec=float(meta.duration_sec),
@@ -218,11 +225,11 @@ def run_full_pipeline(
             micro=micro,
             metrics=metrics,
         )
-        micro["llm_warnings"] = llm_warn
-        micro["llm_section_appended"] = llm_used
+        micro["ai_warnings"] = llm_warn
+        micro["ai_section_appended"] = llm_used
     else:
-        micro["llm_warnings"] = []
-        micro["llm_section_appended"] = False
+        micro["ai_warnings"] = []
+        micro["ai_section_appended"] = False
 
     _write_json(td / "kinder-micro-result.json", micro)
     (rd / f"{date_s}-kinder-micro.md").write_text(
@@ -239,24 +246,6 @@ def run_full_pipeline(
         + "\n```\n",
         encoding="utf-8",
     )
-
-    (td / "kinder-edu-report.md").write_text(edu_md, encoding="utf-8")
-    (rd / f"{date_s}-kinder-edu-report.md").write_text(edu_md, encoding="utf-8")
-
-    recorded_at = datetime.now().isoformat(timespec="seconds")
-    for c in micro.get("children", []) or []:
-        sid = c.get("student_id")
-        fname_sid = sid or f"anon_{c.get('child_id', 'X')}"
-        out = metrics_dir() / f"{date_s}_{fname_sid}_metrics.json"
-        _write_json(out, c)
-        if accumulate_sessions:
-            student_longitudinal.append_session(
-                student_id=fname_sid,
-                child=c,
-                video_path=str(orig_video_path),
-                run_date=date_s,
-                recorded_at_iso=recorded_at,
-            )
 
     track_zh = "ByteTrack" if micro.get("tracking") == "bytetrack" else "槽位對齊（無追蹤）"
     pose_zh = _pose_backend_label_zh(str(micro.get("pose_backend", "")))
@@ -279,15 +268,32 @@ def run_full_pipeline(
         "",
         "*詳見 tmp/kinder-*、reports/ 同日彙總，以及 reports/metrics/ 個別孩童 metrics。*",
     ]
-    analysis_path = rd / f"{date_s}-kinder-analysis.md"
-    analysis_path.write_text("\n".join(consolidated), encoding="utf-8")
+    merged_report_md = "\n".join(consolidated) + "\n\n---\n\n" + edu_md
+    (td / "kinder-report.md").write_text(merged_report_md, encoding="utf-8")
+    reports_md_path = rd / f"{date_s}-kinder-report.md"
+    reports_md_path.write_text(merged_report_md, encoding="utf-8")
+
+    recorded_at = datetime.now().isoformat(timespec="seconds")
+    for c in micro.get("children", []) or []:
+        sid = c.get("student_id")
+        fname_sid = sid or f"anon_{c.get('child_id', 'X')}"
+        out = metrics_dir() / f"{date_s}_{fname_sid}_metrics.json"
+        _write_json(out, c)
+        if accumulate_sessions:
+            student_longitudinal.append_session(
+                student_id=fname_sid,
+                child=c,
+                video_path=str(orig_video_path),
+                run_date=date_s,
+                recorded_at_iso=recorded_at,
+            )
 
     pdf_tmp_out: Path | None = None
     pdf_reports_out: Path | None = None
     if emit_pdf:
         pdf_tmp = td / "kinder-report.pdf"
         pdf_saved = rd / f"{pdf_stamp}-kinder-report.pdf"
-        export_combined_report_pdf(analysis_path, td / "kinder-edu-report.md", pdf_tmp)
+        export_markdown_pdf(td / "kinder-report.md", pdf_tmp)
         pdf_saved.write_bytes(pdf_tmp.read_bytes())
         pdf_tmp_out = pdf_tmp
         pdf_reports_out = pdf_saved
@@ -296,9 +302,8 @@ def run_full_pipeline(
         "macro_json": td / "kinder-macro-result.json",
         "micro_json": td / "kinder-micro-result.json",
         "metrics_json": td / "kinder-metrics-check.json",
-        "edu_md": td / "kinder-edu-report.md",
-        "reports_edu": rd / f"{date_s}-kinder-edu-report.md",
-        "reports_analysis": analysis_path,
+        "report_md": td / "kinder-report.md",
+        "daily_report_md": reports_md_path,
         "heatmap_png": Path(macro.get("heatmap_png", heatmap_path)),
     }
     if segment_path is not None:

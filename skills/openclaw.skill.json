@@ -52,7 +52,7 @@
           "pose": { "type": "string", "enum": ["off", "pose", "holistic"], "default": "pose" },
           "no_mediapipe": { "type": "boolean", "default": false },
           "no_video_reid": { "type": "boolean", "default": false },
-          "no_llm": { "type": "boolean", "default": false },
+          "no_ai": { "type": "boolean", "default": false },
           "pdf": { "type": "boolean", "default": false },
           "no_accumulate_sessions": { "type": "boolean", "default": false }
         },

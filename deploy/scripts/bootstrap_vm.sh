@@ -26,7 +26,7 @@ echo
 echo "[bootstrap] Done."
 echo "Optional packages:"
 echo "  pip install -r requirements-insightface.txt"
-echo "  pip install -r requirements-llm.txt"
+echo "  pip install -r requirements-ai.txt"
 echo "  pip install -r requirements-pdf.txt"
 echo
 echo "Recommended env vars:"
