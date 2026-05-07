@@ -5,5 +5,6 @@ __pycache__/
 *.MOV
 .DS_Store
 .venv/
+.venv-*/
 tmp/
 yolov8*.pt
