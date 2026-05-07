@@ -124,10 +124,12 @@ curl -X POST -H "X-API-Key: ${KINDER_API_KEY}" http://127.0.0.1:8000/tasks/<task
 ## 7) 產出位置
 
 - 暫存：`$KINDER_TMP_DIR`（未設定時為 `./tmp`）
-- 身分與跨影片累積：`$KINDER_MEMORY_DIR`（未設定時為 `./memory`）
-- 分析報告與個別 metrics：`$KINDER_REPORTS_DIR`（未設定時為 `./reports`，其中 `metrics/` 為 per-child JSON）
+- 身分資料庫：`$KINDER_MEMORY_DIR/identity_features.db.json`（未設定時為 `./memory`）
+- 分析報告、個別 metrics、跨影片累積：`$KINDER_REPORTS_DIR`（未設定時為 `./reports`）
+  - `metrics/`：單次分析 per-child JSON
+  - `students/<slug>/`：`sessions.jsonl`（跨影片累積）、`longitudinal-report.md`（個人長期報告）等
 
-升級自舊版時，若曾有 `memory/metrics/*.json`，可手動搬到 `reports/metrics/`（或調整 `KINDER_REPORTS_DIR` 指到原目錄）。
+升級自舊版時：若曾有 `memory/metrics/*.json`，請搬到 `reports/metrics/`；若曾有 `memory/students/`，請搬到 `reports/students/`（或調整 `KINDER_REPORTS_DIR`／符號連結）。
 
 ## 8) 健康檢查與故障排除
 

@@ -38,7 +38,7 @@ def render_longitudinal_markdown(student_id: str) -> str:
         f"# 個人長期分析：{name}",
         "",
         f"- **查詢鍵**：`{student_id}`",
-        f"- **儲存目錄（slug）**：`memory/students/{sid}/`",
+        f"- **儲存目錄（slug）**：`reports/students/{sid}/`",
         f"- **累積次數**：{len(sessions)} 支影片／分析 run",
         "",
         "## 各次表現總表",
@@ -87,7 +87,7 @@ def render_longitudinal_markdown(student_id: str) -> str:
         "",
         "---",
         "",
-        "*資料來源：`memory/students/` 下該身分之 `sessions.jsonl`。*",
+        "*資料來源：`reports/students/` 下該身分之 `sessions.jsonl`。*",
     ]
     return "\n".join(lines)
 
@@ -122,13 +122,13 @@ def main() -> None:
     p.add_argument(
         "--all",
         action="store_true",
-        help="為 memory/students/*/sessions.jsonl 有資料的每位孩子各產生一份報告",
+        help="為 reports/students/*/sessions.jsonl 有資料的每位孩子各產生一份報告",
     )
     p.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="單人模式：Markdown 輸出路徑（預設 memory/students/<slug>/longitudinal-report.md）；與 --all 併用時會忽略",
+        help="單人模式：Markdown 輸出路徑（預設 reports/students/<slug>/longitudinal-report.md）；與 --all 併用時會忽略",
     )
     p.add_argument("--pdf", action="store_true", help="另輸出 PDF（需 requirements-pdf.txt）")
     args = p.parse_args()

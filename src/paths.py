@@ -25,7 +25,7 @@ def memory_dir() -> pathlib.Path:
 
 
 def reports_dir() -> pathlib.Path:
-    """分析輸出（同日 Markdown、PDF、metrics 子目錄）。"""
+    """分析輸出（同日 Markdown、PDF、metrics、跨影片累積 students/）。"""
     return _dir_from_env("KINDER_REPORTS_DIR", repo_root() / "reports")
 
 
@@ -45,6 +45,7 @@ def identity_db_path() -> pathlib.Path:
 
 
 def students_dir() -> pathlib.Path:
-    p = memory_dir() / "students"
+    """跨影片累積 JSONL、個人長期報告輸出：`reports/students/<slug>/`。"""
+    p = reports_dir() / "students"
     p.mkdir(parents=True, exist_ok=True)
     return p

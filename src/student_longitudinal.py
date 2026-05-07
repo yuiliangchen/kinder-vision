@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from src.paths import memory_dir, students_dir
+from src.paths import students_dir
 
 
 def student_slug(student_id: str) -> str:

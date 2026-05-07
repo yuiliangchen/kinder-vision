@@ -46,7 +46,7 @@
 ### Step 7: 歸檔與可選 PDF
 - 同步寫入 `reports/` 同日摘要檔（macro/micro/metrics/edu/analysis）。
 - 每位幼兒寫入 `reports/metrics/YYYY-MM-DD_<student_id>_metrics.json`。
-- 預設累積 `memory/students/<student_id>/sessions.jsonl`（可由 `--no-accumulate-sessions` 關閉）。
+- 預設累積 `reports/students/<student_id>/sessions.jsonl`（可由 `--no-accumulate-sessions` 關閉）。
 - 若 `emit_pdf=True`，輸出 `tmp/kinder-report.pdf` 並複製到 `reports/<timestamp>-kinder-report.pdf`。
 
 ---

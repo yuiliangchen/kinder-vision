@@ -69,7 +69,7 @@ def main() -> None:
     p.add_argument(
         "--no-accumulate-sessions",
         action="store_true",
-        help="不寫入跨影片累積檔 memory/students/<id>/sessions.jsonl",
+        help="不寫入跨影片累積檔 reports/students/<id>/sessions.jsonl",
     )
     args = p.parse_args()
 
