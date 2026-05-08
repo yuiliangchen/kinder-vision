@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -140,175 +141,172 @@ def run_full_pipeline(
 
     memory_dir()
     rd = reports_dir()
-    td = tmp_dir()
+    base_tmp = tmp_dir()
     run_started = datetime.now()
     date_s = run_started.strftime("%Y-%m-%d")
     pdf_stamp = run_started.strftime("%Y-%m-%d_%H-%M-%S")
-
-    full_meta = read_video_meta(orig_video_path)
-    segment_path: Path | None = None
-    work_path = orig_video_path
-    win_t0_sec: float | None = None
-    win_t1_sec: float | None = None
-
-    if t0 is not None or t1 is not None:
-        from src.segment import export_video_segment
-
-        win_t0_sec = parse_timecode(t0) if t0 is not None else 0.0
-        win_t1_sec = parse_timecode(t1) if t1 is not None else float(full_meta.duration_sec)
-        win_t0_sec = max(0.0, min(win_t0_sec, float(full_meta.duration_sec)))
-        win_t1_sec = max(0.0, min(win_t1_sec, float(full_meta.duration_sec)))
-        if win_t1_sec <= win_t0_sec + 0.25:
-            raise ValueError("分析區間無效：請確認 t0 < t1，且區間至少約 0.25 秒")
-        segment_path = td / "kinder-segment.mp4"
-        export_video_segment(orig_video_path, win_t0_sec, win_t1_sec, segment_path)
-        work_path = segment_path
-
-    model = YOLO(model_path)
-    meta = read_video_meta(work_path)
-    id_map = _identity_pass(work_path, model, learn_identities=learn_identities)
-    _write_json(td / "kinder-identity-map.json", {"items": id_map})
-
-    heatmap_path = td / "kinder-heatmap.png"
-    macro = macro_analytics.run_macro(
-        work_path, meta, model, sample_stride=sample_stride, heatmap_png=heatmap_path
-    )
-    if win_t0_sec is not None and win_t1_sec is not None:
-        macro["analysis_window_original"] = f"{format_mmss(win_t0_sec)} — {format_mmss(win_t1_sec)}"
-        macro["analysis_window_original_sec"] = [win_t0_sec, win_t1_sec]
-    _write_json(td / "kinder-macro-result.json", macro)
-    (rd / f"{date_s}-kinder-macro.md").write_text(
-        "# 巨觀層分析（機讀摘要）\n\n```json\n"
-        + json.dumps(macro, ensure_ascii=False, indent=2)
-        + "\n```\n",
-        encoding="utf-8",
-    )
-
-    audio_y, sr = load_audio_mono(work_path)
-    micro = micro_analytics.run_micro(
-        work_path,
-        meta,
-        model,
-        audio_y,
-        sr,
-        sample_stride=max(2, sample_stride - 1),
-        use_tracking=use_tracking,
-        trajectory_dir=td,
-        use_mediapipe=use_mediapipe,
-        pose_mode=pose_mode,
-        use_video_reid=use_video_reid,
-        learn_identities=learn_identities,
-    )
-    if win_t0_sec is not None and win_t1_sec is not None:
-        micro["analysis_window_original"] = f"{format_mmss(win_t0_sec)} — {format_mmss(win_t1_sec)}"
-        micro["analysis_window_original_sec"] = [win_t0_sec, win_t1_sec]
-
-    _merge_child_identities(micro, id_map)
-    _normalize_micro_display_names(micro)
-
-    metrics = metrics_checker.run_metrics(macro, micro)
-
-    edu_md = edu_advisor.render_edu_markdown(
-        str(orig_video_path),
-        meta.duration_sec,
-        macro,
-        micro,
-        metrics,
-        include_meta=False,
-    )
-    if use_llm:
-        edu_md, llm_warn, llm_used = ai_edu.augment_edu_report(
-            edu_md,
-            video_path=str(orig_video_path),
-            duration_sec=float(meta.duration_sec),
-            macro=macro,
-            micro=micro,
-            metrics=metrics,
-        )
-        micro["ai_warnings"] = llm_warn
-        micro["ai_section_appended"] = llm_used
-    else:
-        micro["ai_warnings"] = []
-        micro["ai_section_appended"] = False
-
-    _write_json(td / "kinder-micro-result.json", micro)
-    (rd / f"{date_s}-kinder-micro.md").write_text(
-        "# 微觀層分析（機讀摘要）\n\n```json\n"
-        + json.dumps(micro, ensure_ascii=False, indent=2)
-        + "\n```\n",
-        encoding="utf-8",
-    )
-
-    _write_json(td / "kinder-metrics-check.json", metrics)
-    (rd / f"{date_s}-kinder-metrics.md").write_text(
-        "# 指標核查（機讀摘要）\n\n```json\n"
-        + json.dumps(metrics, ensure_ascii=False, indent=2)
-        + "\n```\n",
-        encoding="utf-8",
-    )
-
-    track_zh = "ByteTrack" if micro.get("tracking") == "bytetrack" else "槽位對齊（無追蹤）"
-    pose_zh = _pose_backend_label_zh(str(micro.get("pose_backend", "")))
-    win_line = ""
-    if micro.get("analysis_window_original"):
-        win_line = f"\n- 原片區間：{micro['analysis_window_original']}"
-    consolidated = [
-        "# 📊 幼兒行為分析報告（自動彙總）",
-        "",
-        f"- 分析片長：{int(meta.duration_sec // 60)} 分 {int(meta.duration_sec % 60)} 秒（送入模型之片段）",
-        f"- 追蹤模式：{track_zh}（vid_stride={micro.get('vid_stride', '—')}）；姿勢：{pose_zh}{win_line}",
-        f"- 分析時間：{datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        f"- 整體狀態：{metrics.get('overall_status', '')}",
-        "",
-        "## 指標摘要",
-        "",
-        f"- 節奏同步：{metrics['micro_metrics']['sync_score']['status']}（{metrics['micro_metrics']['sync_score']['value_ms']} ms）",
-        f"- 身體穩定：{metrics['micro_metrics']['stability_score']['status']}（{metrics['micro_metrics']['stability_score']['value_cm']} cm）",
-        f"- 動作流暢：{metrics['micro_metrics']['fluency_score']['status']}（jerk 代理 {metrics['micro_metrics']['fluency_score']['value_jerk']}）",
-        "",
-        "*詳見 tmp/kinder-*、reports/ 同日彙總，以及 reports/metrics/ 個別孩童 metrics。*",
-    ]
-    merged_report_md = "\n".join(consolidated) + "\n\n---\n\n" + edu_md
-    (td / "kinder-report.md").write_text(merged_report_md, encoding="utf-8")
+    macro_md_path = rd / f"{date_s}-kinder-macro.md"
+    micro_md_path = rd / f"{date_s}-kinder-micro.md"
+    metrics_md_path = rd / f"{date_s}-kinder-metrics.md"
     reports_md_path = rd / f"{date_s}-kinder-report.md"
-    reports_md_path.write_text(merged_report_md, encoding="utf-8")
 
-    recorded_at = datetime.now().isoformat(timespec="seconds")
-    for c in micro.get("children", []) or []:
-        sid = c.get("student_id")
-        fname_sid = sid or f"anon_{c.get('child_id', 'X')}"
-        out = metrics_dir() / f"{date_s}_{fname_sid}_metrics.json"
-        _write_json(out, c)
-        if accumulate_sessions:
-            student_longitudinal.append_session(
-                student_id=fname_sid,
-                child=c,
+    with tempfile.TemporaryDirectory(prefix="kinder-run-", dir=base_tmp) as run_tmp:
+        td = Path(run_tmp)
+        full_meta = read_video_meta(orig_video_path)
+        work_path = orig_video_path
+        win_t0_sec: float | None = None
+        win_t1_sec: float | None = None
+
+        if t0 is not None or t1 is not None:
+            from src.segment import export_video_segment
+
+            win_t0_sec = parse_timecode(t0) if t0 is not None else 0.0
+            win_t1_sec = parse_timecode(t1) if t1 is not None else float(full_meta.duration_sec)
+            win_t0_sec = max(0.0, min(win_t0_sec, float(full_meta.duration_sec)))
+            win_t1_sec = max(0.0, min(win_t1_sec, float(full_meta.duration_sec)))
+            if win_t1_sec <= win_t0_sec + 0.25:
+                raise ValueError("分析區間無效：請確認 t0 < t1，且區間至少約 0.25 秒")
+            segment_path = td / "kinder-segment.mp4"
+            export_video_segment(orig_video_path, win_t0_sec, win_t1_sec, segment_path)
+            work_path = segment_path
+
+        model = YOLO(model_path)
+        meta = read_video_meta(work_path)
+        id_map = _identity_pass(work_path, model, learn_identities=learn_identities)
+        _write_json(td / "kinder-identity-map.json", {"items": id_map})
+
+        heatmap_path = td / "kinder-heatmap.png"
+        macro = macro_analytics.run_macro(
+            work_path, meta, model, sample_stride=sample_stride, heatmap_png=heatmap_path
+        )
+        if win_t0_sec is not None and win_t1_sec is not None:
+            macro["analysis_window_original"] = f"{format_mmss(win_t0_sec)} — {format_mmss(win_t1_sec)}"
+            macro["analysis_window_original_sec"] = [win_t0_sec, win_t1_sec]
+        _write_json(td / "kinder-macro-result.json", macro)
+        macro_md_path.write_text(
+            "# 巨觀層分析（機讀摘要）\n\n```json\n"
+            + json.dumps(macro, ensure_ascii=False, indent=2)
+            + "\n```\n",
+            encoding="utf-8",
+        )
+
+        audio_y, sr = load_audio_mono(work_path)
+        micro = micro_analytics.run_micro(
+            work_path,
+            meta,
+            model,
+            audio_y,
+            sr,
+            sample_stride=max(2, sample_stride - 1),
+            use_tracking=use_tracking,
+            trajectory_dir=td,
+            use_mediapipe=use_mediapipe,
+            pose_mode=pose_mode,
+            use_video_reid=use_video_reid,
+            learn_identities=learn_identities,
+        )
+        if win_t0_sec is not None and win_t1_sec is not None:
+            micro["analysis_window_original"] = f"{format_mmss(win_t0_sec)} — {format_mmss(win_t1_sec)}"
+            micro["analysis_window_original_sec"] = [win_t0_sec, win_t1_sec]
+
+        _merge_child_identities(micro, id_map)
+        _normalize_micro_display_names(micro)
+        metrics = metrics_checker.run_metrics(macro, micro)
+
+        edu_md = edu_advisor.render_edu_markdown(
+            str(orig_video_path),
+            meta.duration_sec,
+            macro,
+            micro,
+            metrics,
+            include_meta=False,
+        )
+        if use_llm:
+            edu_md, llm_warn, llm_used = ai_edu.augment_edu_report(
+                edu_md,
                 video_path=str(orig_video_path),
-                run_date=date_s,
-                recorded_at_iso=recorded_at,
+                duration_sec=float(meta.duration_sec),
+                macro=macro,
+                micro=micro,
+                metrics=metrics,
             )
+            micro["ai_warnings"] = llm_warn
+            micro["ai_section_appended"] = llm_used
+        else:
+            micro["ai_warnings"] = []
+            micro["ai_section_appended"] = False
 
-    pdf_tmp_out: Path | None = None
-    pdf_reports_out: Path | None = None
-    if emit_pdf:
-        pdf_tmp = td / "kinder-report.pdf"
-        pdf_saved = rd / f"{pdf_stamp}-kinder-report.pdf"
-        export_markdown_pdf(td / "kinder-report.md", pdf_tmp)
-        pdf_saved.write_bytes(pdf_tmp.read_bytes())
-        pdf_tmp_out = pdf_tmp
-        pdf_reports_out = pdf_saved
+        _write_json(td / "kinder-micro-result.json", micro)
+        micro_md_path.write_text(
+            "# 微觀層分析（機讀摘要）\n\n```json\n"
+            + json.dumps(micro, ensure_ascii=False, indent=2)
+            + "\n```\n",
+            encoding="utf-8",
+        )
 
-    out: dict[str, Path] = {
-        "macro_json": td / "kinder-macro-result.json",
-        "micro_json": td / "kinder-micro-result.json",
-        "metrics_json": td / "kinder-metrics-check.json",
-        "report_md": td / "kinder-report.md",
-        "daily_report_md": reports_md_path,
-        "heatmap_png": Path(macro.get("heatmap_png", heatmap_path)),
-    }
-    if segment_path is not None:
-        out["segment_video"] = segment_path
-    if pdf_tmp_out is not None and pdf_reports_out is not None:
-        out["report_pdf"] = pdf_tmp_out
-        out["reports_pdf"] = pdf_reports_out
-    return out
+        _write_json(td / "kinder-metrics-check.json", metrics)
+        metrics_md_path.write_text(
+            "# 指標核查（機讀摘要）\n\n```json\n"
+            + json.dumps(metrics, ensure_ascii=False, indent=2)
+            + "\n```\n",
+            encoding="utf-8",
+        )
+
+        track_zh = "ByteTrack" if micro.get("tracking") == "bytetrack" else "槽位對齊（無追蹤）"
+        pose_zh = _pose_backend_label_zh(str(micro.get("pose_backend", "")))
+        win_line = ""
+        if micro.get("analysis_window_original"):
+            win_line = f"\n- 原片區間：{micro['analysis_window_original']}"
+        consolidated = [
+            "# 📊 幼兒行為分析報告（自動彙總）",
+            "",
+            f"- 分析片長：{int(meta.duration_sec // 60)} 分 {int(meta.duration_sec % 60)} 秒（送入模型之片段）",
+            f"- 追蹤模式：{track_zh}（vid_stride={micro.get('vid_stride', '—')}）；姿勢：{pose_zh}{win_line}",
+            f"- 分析時間：{datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"- 整體狀態：{metrics.get('overall_status', '')}",
+            "",
+            "## 指標摘要",
+            "",
+            f"- 節奏同步：{metrics['micro_metrics']['sync_score']['status']}（{metrics['micro_metrics']['sync_score']['value_ms']} ms）",
+            f"- 身體穩定：{metrics['micro_metrics']['stability_score']['status']}（{metrics['micro_metrics']['stability_score']['value_cm']} cm）",
+            f"- 動作流暢：{metrics['micro_metrics']['fluency_score']['status']}（jerk 代理 {metrics['micro_metrics']['fluency_score']['value_jerk']}）",
+            "",
+            "*詳見 reports/ 同日彙總，以及 reports/metrics/ 個別孩童 metrics。*",
+        ]
+        merged_report_md = "\n".join(consolidated) + "\n\n---\n\n" + edu_md
+        report_md_tmp = td / "kinder-report.md"
+        report_md_tmp.write_text(merged_report_md, encoding="utf-8")
+        reports_md_path.write_text(merged_report_md, encoding="utf-8")
+
+        recorded_at = datetime.now().isoformat(timespec="seconds")
+        for c in micro.get("children", []) or []:
+            sid = c.get("student_id")
+            fname_sid = sid or f"anon_{c.get('child_id', 'X')}"
+            out = metrics_dir() / f"{date_s}_{fname_sid}_metrics.json"
+            _write_json(out, c)
+            if accumulate_sessions:
+                student_longitudinal.append_session(
+                    student_id=fname_sid,
+                    child=c,
+                    video_path=str(orig_video_path),
+                    run_date=date_s,
+                    recorded_at_iso=recorded_at,
+                )
+
+        pdf_reports_out: Path | None = None
+        if emit_pdf:
+            pdf_tmp = td / "kinder-report.pdf"
+            pdf_saved = rd / f"{pdf_stamp}-kinder-report.pdf"
+            export_markdown_pdf(report_md_tmp, pdf_tmp)
+            pdf_saved.write_bytes(pdf_tmp.read_bytes())
+            pdf_reports_out = pdf_saved
+
+        out: dict[str, Path] = {
+            "daily_report_md": reports_md_path,
+            "macro_md": macro_md_path,
+            "micro_md": micro_md_path,
+            "metrics_md": metrics_md_path,
+        }
+        if pdf_reports_out is not None:
+            out["reports_pdf"] = pdf_reports_out
+        return out
