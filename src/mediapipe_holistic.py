@@ -9,7 +9,7 @@ import numpy as np
 
 from mediapipe.tasks.python.core import base_options as base_options_lib
 from mediapipe.tasks.python.vision import HolisticLandmarker, HolisticLandmarkerOptions
-from mediapipe.tasks.python.vision.core import image as mp_image
+from mediapipe.python._framework_bindings import image as mp_image
 
 from src.mediapipe_kp_common import crop_padded_xyxy, normalized_pose_list_to_coco17
 
