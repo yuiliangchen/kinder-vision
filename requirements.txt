@@ -1,13 +1,17 @@
 # Kinder Vision — runtime stack aligned with docs/agents/*.md / README
-numpy==2.4.4
+# Versions verified against working kinder-vision env on Linux/aarch64 (Python 3.11).
+# NOTE: mediapipe 0.10.18 (latest aarch64) requires numpy<2, so we cap numpy here
+# and use the last opencv-python-headless that supports numpy 1.x.
+numpy>=1.26,<2
 scipy==1.17.1
 pandas==3.0.2
-opencv-python-headless==4.13.0.92
+opencv-python-headless==4.10.0.84
 librosa==0.11.0
 soundfile==0.13.1
 matplotlib==3.10.9
 tqdm==4.67.3
-ultralytics==8.4.47
+ultralytics==8.4.46
 torch==2.11.0
+torchvision==0.26.0
 lap==0.5.13
-mediapipe==0.10.35
+mediapipe==0.10.18
