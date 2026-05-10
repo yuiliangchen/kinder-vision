@@ -62,6 +62,13 @@ def main() -> None:
         help="不在教育報告末段呼叫 AI（需 API Key 與 requirements-ai）",
     )
     p.add_argument(
+        "--expected-children",
+        type=int,
+        default=None,
+        metavar="N",
+        help="現場實際小孩人數提示；clustering 會以此為目標進一步合併 ByteTrack 軌跡，不含老師 / 成人（預設不使用此提示）",
+    )
+    p.add_argument(
         "--pdf",
         action="store_true",
         help="另存合併 PDF（彙總 + 教育建議）；需 pip install -r requirements-pdf.txt",
@@ -89,6 +96,7 @@ def main() -> None:
         use_video_reid=not args.no_video_reid,
         emit_pdf=args.pdf,
         accumulate_sessions=not args.no_accumulate_sessions,
+        expected_children=args.expected_children,
     )
     print("完成。輸出：")
     for k, v in paths.items():

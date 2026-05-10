@@ -100,14 +100,36 @@ def _merge_child_identities(micro: dict[str, Any], id_map: list[dict[str, Any]])
 
 
 def _normalize_micro_display_names(micro: dict[str, Any]) -> None:
-    """對外一律使用數字編號稱呼（與 student_id / 軌跡槽位一致）。"""
-    for row in (micro.get("reid_by_track") or {}).values():
-        if isinstance(row, dict) and row.get("student_id"):
-            lab = identity.display_label_for_student_id(str(row["student_id"]))
-            if lab:
-                row["display_name"] = lab
-    for c in micro.get("children", []) or []:
-        c["display_name"] = identity.display_label_for_child(c.get("student_id"), c.get("child_id"))
+    """對外一律使用「孩子 N」稱呼。
+
+    同一場跑內依 ``child_id``（1..N 連續編號，已經軌跡合併）產生顯示名，
+    使出現在關注名單、 metrics 、 trajectory 與報告中的編號一致。
+    `reid_by_track` 是以「身分」為單位的索引（軌跡合併後的 cluster root），
+    在這裡以 ``track_id`` 反查 micro children 並套用同樣的 display_name。
+    """
+    children = micro.get("children", []) or []
+    for c in children:
+        cid = c.get("child_id")
+        c["display_name"] = (
+            f"孩子 {int(cid)}" if isinstance(cid, str) and cid.isdigit() else identity.display_label_for_child(c.get("student_id"), cid)
+        )
+    track_to_label: dict[str, str] = {}
+    for c in children:
+        tid = c.get("track_id")
+        if tid is not None and c.get("display_name"):
+            track_to_label[str(tid)] = c["display_name"]
+    for tid, row in (micro.get("reid_by_track") or {}).items():
+        if not isinstance(row, dict):
+            continue
+        lab = track_to_label.get(str(tid))
+        if lab:
+            row["display_name"] = lab
+            continue
+        sid = row.get("student_id")
+        if sid:
+            mapped = identity.display_label_for_student_id(str(sid))
+            if mapped:
+                row["display_name"] = mapped
 
 
 def _pose_backend_label_zh(pose_backend: str | None) -> str:
@@ -134,6 +156,7 @@ def run_full_pipeline(
     use_video_reid: bool = True,
     emit_pdf: bool = False,
     accumulate_sessions: bool = True,
+    expected_children: int | None = None,
 ) -> dict[str, Path]:
     orig_video_path = Path(video_path).expanduser().resolve()
     if not orig_video_path.is_file():
@@ -204,6 +227,7 @@ def run_full_pipeline(
             pose_mode=pose_mode,
             use_video_reid=use_video_reid,
             learn_identities=learn_identities,
+            expected_children=expected_children,
         )
         if win_t0_sec is not None and win_t1_sec is not None:
             micro["analysis_window_original"] = f"{format_mmss(win_t0_sec)} — {format_mmss(win_t1_sec)}"

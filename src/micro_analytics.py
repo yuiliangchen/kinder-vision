@@ -52,6 +52,294 @@ def _mean_unit_embeddings(vecs: list[np.ndarray]) -> np.ndarray | None:
     return (v / n) if n > 1e-9 else None
 
 
+class _UnionFind:
+    def __init__(self, items: list[int]) -> None:
+        self.parent = {i: i for i in items}
+
+    def find(self, x: int) -> int:
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]
+            x = self.parent[x]
+        return x
+
+    def union(self, a: int, b: int) -> None:
+        ra, rb = self.find(a), self.find(b)
+        if ra != rb:
+            self.parent[ra] = rb
+
+    def groups(self) -> dict[int, list[int]]:
+        out: dict[int, list[int]] = defaultdict(list)
+        for x in self.parent:
+            out[self.find(x)].append(x)
+        return dict(out)
+
+
+def _cluster_tracks_by_face(
+    tids: list[int],
+    track_face_vecs: dict[int, list[np.ndarray]],
+    track_app_vecs: dict[int, list[np.ndarray]],
+    track_series: dict[int, list[dict[str, Any]]] | None = None,
+    *,
+    face_threshold: float = 0.50,
+    app_threshold: float = 0.88,
+    overlap_tolerance: float = 0.25,
+    target_clusters: int | None = None,
+) -> dict[int, int]:
+    """Merge ByteTrack ids that very likely belong to the same person.
+
+    Returns a mapping ``track_id -> cluster_root_id``. Roots are themselves
+    valid track ids (chosen as the smallest member of each group).
+
+    Strategy:
+        1. Average each track's ArcFace embeddings (if any) into a unit vector.
+        2. **Hard exclusion**: if two tracks overlap on the timeline by more
+           than ``overlap_tolerance`` seconds, they cannot be the same person
+           regardless of similarity — ByteTrack already separated them within
+           that window. This is the most reliable signal we have.
+        3. Among non-overlapping pairs, union those whose face cosine
+           similarity >= ``face_threshold``. The default 0.62 is calibrated
+           for buffalo_l on classroom footage where small / low-resolution
+           faces produce inflated baseline similarities (~0.4–0.5 between
+           different children).
+        4. As a softer fallback, also union pairs whose appearance histogram
+           cosine >= ``app_threshold`` AND whose face evidence (if any) does
+           not reject the merge.
+    """
+    if not tids:
+        return {}
+
+    # Pre-compute time intervals for each track so we can reject overlapping
+    # pairs in O(1) during the pairwise loop.
+    intervals: dict[int, tuple[float, float]] = {}
+    if track_series:
+        for tid in tids:
+            rows = track_series.get(tid) or []
+            ts = [float(r.get("t", 0.0)) for r in rows if r.get("t") is not None]
+            if ts:
+                intervals[tid] = (min(ts), max(ts))
+
+    def _overlaps(a: int, b: int) -> bool:
+        ia, ib = intervals.get(a), intervals.get(b)
+        if ia is None or ib is None:
+            return False
+        a0, a1 = ia
+        b0, b1 = ib
+        overlap = min(a1, b1) - max(a0, b0)
+        return overlap > overlap_tolerance
+
+    # Pre-compute candidate edges sorted by descending similarity. We then
+    # accept them greedily, only unifying two clusters when **no** member of
+    # the resulting group would overlap with another member — this prevents
+    # transitive merges from collapsing simultaneously-visible tracks.
+    face_means: dict[int, np.ndarray] = {}
+    for tid in tids:
+        m = _mean_unit_embeddings(track_face_vecs.get(tid, []))
+        if m is not None:
+            face_means[tid] = m
+    app_means: dict[int, np.ndarray] = {}
+    for tid in tids:
+        m = _mean_unit_embeddings(track_app_vecs.get(tid, []))
+        if m is not None:
+            app_means[tid] = m
+
+    sorted_face_tids = sorted(face_means.keys())
+    face_evidence: dict[tuple[int, int], float] = {}
+    edges: list[tuple[float, int, int, str]] = []  # (sim, ti, tj, source)
+    for i, ti in enumerate(sorted_face_tids):
+        for tj in sorted_face_tids[i + 1 :]:
+            if _overlaps(ti, tj):
+                continue
+            sim = float(np.dot(face_means[ti], face_means[tj]))
+            face_evidence[(ti, tj)] = sim
+            if sim >= face_threshold:
+                edges.append((sim, ti, tj, "face"))
+    sorted_app_tids = sorted(app_means.keys())
+    for i, ti in enumerate(sorted_app_tids):
+        for tj in sorted_app_tids[i + 1 :]:
+            if _overlaps(ti, tj):
+                continue
+            key = (min(ti, tj), max(ti, tj))
+            face_sim = face_evidence.get(key)
+            if face_sim is not None and face_sim < face_threshold * 0.55:
+                continue
+            sim = float(np.dot(app_means[ti], app_means[tj]))
+            if sim >= app_threshold:
+                # Bias appearance edges below face edges with the same number.
+                edges.append((sim - 0.05, ti, tj, "app"))
+
+    # Build *all* candidate edges between non-overlapping pairs (even those
+    # below the static threshold) so that target-driven clustering can keep
+    # merging until it hits ``target_clusters``. Pairs above the static
+    # threshold are always considered; lower-similarity pairs are only used
+    # when target_clusters demands further consolidation.
+    all_edges: list[tuple[float, int, int]] = []
+    if target_clusters is not None:
+        for i, ti in enumerate(sorted_face_tids):
+            for tj in sorted_face_tids[i + 1 :]:
+                if _overlaps(ti, tj):
+                    continue
+                key = (min(ti, tj), max(ti, tj))
+                sim = face_evidence.get(key)
+                if sim is None:
+                    sim = float(np.dot(face_means[ti], face_means[tj]))
+                all_edges.append((sim, ti, tj))
+        all_edges.sort(key=lambda e: e[0], reverse=True)
+
+    edges.sort(key=lambda e: e[0], reverse=True)
+
+    uf = _UnionFind(list(tids))
+    cluster_members: dict[int, set[int]] = {tid: {tid} for tid in tids}
+
+    def _can_merge(ra: int, rb: int, *, allow_brief_overlap: bool = False) -> bool:
+        # Reject if a cross-cluster pair overlaps too much. ByteTrack
+        # occasionally double-registers a person for ~1–2 frames around a
+        # crossing, so when ``allow_brief_overlap`` is enabled (target-driven
+        # phase) we tolerate up to ``overlap_tolerance`` seconds of overlap
+        # between any individual pair as long as **no** pair exceeds an
+        # "obviously two people" budget.
+        ma, mb = cluster_members[ra], cluster_members[rb]
+        hard_budget = max(overlap_tolerance, 1.0)
+        for x in ma:
+            ix = intervals.get(x)
+            if ix is None:
+                continue
+            for y in mb:
+                iy = intervals.get(y)
+                if iy is None:
+                    continue
+                ov = min(ix[1], iy[1]) - max(ix[0], iy[0])
+                if allow_brief_overlap:
+                    if ov > hard_budget:
+                        return False
+                else:
+                    if ov > overlap_tolerance:
+                        return False
+        return True
+
+    def _do_merge(ti: int, tj: int, *, allow_brief_overlap: bool = False) -> bool:
+        ra, rb = uf.find(ti), uf.find(tj)
+        if ra == rb:
+            return False
+        if not _can_merge(ra, rb, allow_brief_overlap=allow_brief_overlap):
+            return False
+        uf.union(ti, tj)
+        new_root = uf.find(ti)
+        other_root = ra if new_root == rb else rb
+        cluster_members[new_root] = cluster_members[ra] | cluster_members[rb]
+        if other_root in cluster_members and other_root != new_root:
+            del cluster_members[other_root]
+        return True
+
+    for sim, ti, tj, _src in edges:
+        _do_merge(ti, tj)
+
+    # Target-driven extra merging: greedily consume the next-highest
+    # similarity edge as long as we are above ``target_clusters`` and the
+    # merge respects the temporal-overlap constraint. Edges below an
+    # absolute floor (0.30) are still rejected to avoid merging clearly
+    # different people just to hit a number.
+    if target_clusters is not None:
+        # Allow the floor to dip well below the static threshold when the
+        # caller insists on a specific identity count. 0.18 still discards
+        # near-orthogonal embeddings (clearly different people).
+        min_floor = 0.18
+        idx = 0
+        while len(cluster_members) > target_clusters and idx < len(all_edges):
+            sim, ti, tj = all_edges[idx]
+            idx += 1
+            if sim < min_floor:
+                break
+            _do_merge(ti, tj, allow_brief_overlap=True)
+
+    groups = uf.groups()
+    mapping: dict[int, int] = {}
+    for members in groups.values():
+        root = min(members)
+        for m in members:
+            mapping[m] = root
+    return mapping
+
+
+def _classify_adult_tracks(
+    track_face_ages: dict[int, list[float]],
+    cluster_map: dict[int, int],
+    *,
+    adult_age_threshold: float = 18.0,
+    min_samples: int = 2,
+) -> set[int]:
+    """Return the set of cluster roots that look like adults (age-based).
+
+    Aggregates all face-age samples that fall under the same cluster root and
+    flags clusters whose median estimated age exceeds ``adult_age_threshold``.
+    Clusters with too few age samples remain unflagged ("unknown" → keep).
+
+    Note: buffalo_l face age is unreliable on classroom footage (low
+    resolution / small faces collapse onto the 25–35 range). Prefer
+    :func:`_classify_adult_tracks_by_height` whenever bbox heights are
+    available.
+    """
+    by_root: dict[int, list[float]] = defaultdict(list)
+    for tid, ages in track_face_ages.items():
+        root = cluster_map.get(tid, tid)
+        by_root[root].extend(float(a) for a in ages if a is not None)
+    adults: set[int] = set()
+    for root, ages in by_root.items():
+        if len(ages) < min_samples:
+            continue
+        if float(np.median(ages)) >= adult_age_threshold:
+            adults.add(root)
+    return adults
+
+
+def _classify_adult_tracks_by_height(
+    merged_series: dict[int, list[dict[str, Any]]],
+    *,
+    adult_ratio: float = 1.35,
+    min_samples: int = 4,
+) -> tuple[set[int], dict[int, float]]:
+    """Identify cluster roots that look like adults from bbox height alone.
+
+    For each cluster, compute the median ``box_h`` across all of its frames.
+    Then take the **per-cluster median** of those values as the population
+    baseline (this is robust to a few unusually tall children) and flag any
+    cluster whose median height exceeds ``adult_ratio`` × baseline.
+
+    Returns ``(adult_roots, height_by_root)`` so callers can surface the
+    underlying numbers in warnings / reports.
+    """
+    height_by_root: dict[int, float] = {}
+    for root, rows in merged_series.items():
+        heights = [float(r.get("box_h", 0.0)) for r in rows if r.get("box_h")]
+        if len(heights) < min_samples:
+            continue
+        height_by_root[root] = float(np.median(heights))
+    if not height_by_root:
+        return set(), {}
+    baseline = float(np.median(list(height_by_root.values())))
+    if baseline <= 0:
+        return set(), height_by_root
+    adults = {
+        root for root, h in height_by_root.items() if h >= adult_ratio * baseline
+    }
+    return adults, height_by_root
+
+
+def _merge_track_series(
+    tracks: dict[int, list[dict[str, Any]]],
+    cluster_map: dict[int, int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Concatenate per-frame samples for tracks that share a cluster root."""
+    if not cluster_map:
+        return tracks
+    merged: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for tid, series in tracks.items():
+        root = cluster_map.get(tid, tid)
+        merged[root].extend(series)
+    for root in merged:
+        merged[root].sort(key=lambda s: float(s.get("t", 0.0)))
+    return dict(merged)
+
+
 def _face_patch_from_det(frame_bgr: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
     h = frame_bgr.shape[0]
     h_box = max(1, y2 - y1)
@@ -185,6 +473,7 @@ def run_micro(
     pose_mode: str = "pose",
     use_video_reid: bool = True,
     learn_identities: bool = False,
+    expected_children: int | None = None,
 ) -> dict[str, Any]:
     tempo, beats = librosa.beat.beat_track(y=audio_y, sr=audio_sr, units="time")
     _tb = np.asarray(tempo, dtype=np.float64).ravel()
@@ -214,7 +503,14 @@ def run_micro(
 
     try:
         if use_tracking:
-            series_by_tid, wmsg, reid_by_track = _collect_micro_tracking(
+            (
+                series_by_tid,
+                wmsg,
+                reid_by_track,
+                track_face_vecs,
+                track_app_vecs,
+                track_face_ages,
+            ) = _collect_micro_tracking(
                 model,
                 video_path,
                 meta,
@@ -223,10 +519,89 @@ def run_micro(
                 use_video_reid=use_video_reid,
                 learn_identities=learn_identities,
             )
-            children, w2 = _series_to_children(
-                series_by_tid, meta, beat_times, stop_times, bpm_hint, meter_per_px, trajectory_dir
+
+            # Drop tracks too short to yield reliable per-child metrics before
+            # clustering — ByteTrack often emits 1–2 frame ghosts during
+            # crossings that would otherwise inflate the identity count.
+            min_frames_for_cluster = 8
+            cluster_input = {
+                tid: rows
+                for tid, rows in series_by_tid.items()
+                if len(rows) >= min_frames_for_cluster
+            }
+            face_input = {tid: v for tid, v in track_face_vecs.items() if tid in cluster_input}
+            app_input = {tid: v for tid, v in track_app_vecs.items() if tid in cluster_input}
+            # If the caller provided ``expected_children`` we still need room
+            # for the adults that will be filtered out later, so target a
+            # slightly larger cluster count than the requested child count.
+            cluster_target: int | None = None
+            if expected_children is not None and expected_children > 0:
+                cluster_target = expected_children + 4  # rough headroom for adults
+            cluster_map = _cluster_tracks_by_face(
+                list(cluster_input.keys()),
+                face_input,
+                app_input,
+                track_series=cluster_input,
+                target_clusters=cluster_target,
             )
-            warnings = mp_warn + list(wmsg) + list(w2)
+            # Tracks that were excluded from clustering keep their own identity
+            # so we do not silently drop their motion data; they will appear
+            # as singletons in the merged dictionary.
+            for tid in series_by_tid:
+                cluster_map.setdefault(tid, tid)
+            merged_series = _merge_track_series(series_by_tid, cluster_map)
+            # NOTE: buffalo_l face-age is unreliable on classroom footage
+            # (every face collapses onto the 25–35 range), so we use bbox
+            # height instead — adults are noticeably taller than children
+            # under the same camera framing. The age-based path is kept as
+            # a fallback for cases where heights are missing.
+            adult_roots, _height_by_root = _classify_adult_tracks_by_height(merged_series)
+            adult_filter_method = "bbox_height" if adult_roots else "face_age"
+            if not adult_roots:
+                adult_roots = _classify_adult_tracks(track_face_ages, cluster_map)
+            adults_filtered_count = sum(
+                1 for root in merged_series.keys() if root in adult_roots
+            )
+            child_series = {
+                root: ser for root, ser in merged_series.items() if root not in adult_roots
+            }
+
+            cluster_warnings: list[str] = []
+            n_raw = len(series_by_tid)
+            n_clusters = len(merged_series)
+            n_children = len(child_series)
+            if n_raw and n_clusters < n_raw:
+                cluster_warnings.append(
+                    f"軌跡合併：{n_raw} 條 ByteTrack 軌跡 → {n_clusters} 個身分（face/appearance ReID）"
+                )
+            if adults_filtered_count:
+                method_zh = (
+                    "bbox 高度中位數 ≥ 1.35× 班級中位"
+                    if adult_filter_method == "bbox_height"
+                    else "buffalo_l face age 中位數 ≥ 18"
+                )
+                cluster_warnings.append(
+                    f"估計為成人並排除：{adults_filtered_count} 個身分（{method_zh}）"
+                )
+
+            children, w2 = _series_to_children(
+                child_series, meta, beat_times, stop_times, bpm_hint, meter_per_px, trajectory_dir
+            )
+            # Only retain reid_by_track entries for surviving cluster roots so
+            # downstream consumers see one row per identity, not per raw track.
+            reid_by_root: dict[str, dict[str, Any]] = {}
+            for tid, info in reid_by_track.items():
+                try:
+                    tid_int = int(tid)
+                except (TypeError, ValueError):
+                    reid_by_root[str(tid)] = info
+                    continue
+                root = cluster_map.get(tid_int, tid_int)
+                if root in adult_roots:
+                    continue
+                reid_by_root.setdefault(str(root), info)
+
+            warnings = mp_warn + list(wmsg) + list(w2) + cluster_warnings
             out = {
                 "children": children,
                 "bpm_hint": bpm_hint,
@@ -234,9 +609,18 @@ def run_micro(
                 "tracking": "bytetrack",
                 "vid_stride": sample_stride,
                 "pose_backend": pose_backend,
-                "reid_by_track": reid_by_track,
+                "reid_by_track": reid_by_root,
+                "cluster_summary": {
+                    "raw_tracks": n_raw,
+                    "merged_identities": n_clusters,
+                    "adults_excluded": adults_filtered_count,
+                    "children_kept": n_children,
+                },
             }
-            if not children:
+            if not children and not series_by_tid:
+                # Only fall back to slot-aligned mode when ByteTrack itself
+                # produced nothing; otherwise we trust the cluster output
+                # rather than silently bypass identity merging.
                 return run_micro(
                     video_path,
                     meta,
@@ -251,6 +635,7 @@ def run_micro(
                     pose_mode=pose_mode,
                     use_video_reid=use_video_reid,
                     learn_identities=learn_identities,
+                    expected_children=expected_children,
                 )
             return out
 
@@ -288,11 +673,19 @@ def _collect_micro_tracking(
     refiner,
     use_video_reid: bool,
     learn_identities: bool,
-) -> tuple[dict[int, list[dict[str, Any]]], list[str], dict[str, dict[str, Any]]]:
+) -> tuple[
+    dict[int, list[dict[str, Any]]],
+    list[str],
+    dict[str, dict[str, Any]],
+    dict[int, list[np.ndarray]],
+    dict[int, list[np.ndarray]],
+    dict[int, list[float]],
+]:
     warnings: list[str] = []
     tracks: dict[int, list[dict[str, Any]]] = defaultdict(list)
     track_face_vecs: dict[int, list[np.ndarray]] = defaultdict(list)
     track_app_vecs: dict[int, list[np.ndarray]] = defaultdict(list)
+    track_face_ages: dict[int, list[float]] = defaultdict(list)
     frame_iter = 0
     skipped_id = False
     stride = max(1, int(sample_stride))
@@ -335,14 +728,20 @@ def _collect_micro_tracking(
                     x2, y2 = min(w_img, x2), min(h, y2)
                     if x2 > x1 + 4 and y2 > y1 + 4:
                         fp = _face_patch_from_det(frame_bgr, x1, y1, x2, y2)
-                        fe = face_insight.embed_face_optional(fp)
-                        if fe is not None:
+                        fea = face_insight.embed_face_with_age_optional(fp)
+                        if fea is not None:
+                            fe, age_val = fea
                             track_face_vecs[tid].append(fe)
+                            if age_val is not None:
+                                track_face_ages[tid].append(float(age_val))
                         ub = _upper_body_patch_from_det(frame_bgr, x1, y1, x2, y2)
                         if ub.size > 80:
                             ae = identity.appearance_embedding_from_patch(ub, dim=128)
                             if float(np.linalg.norm(ae)) > 1e-5:
                                 track_app_vecs[tid].append(ae)
+            box_h = 0.0
+            if box is not None and len(box) >= 4:
+                box_h = float(max(0.0, float(box[3]) - float(box[1])))
             tracks[tid].append(
                 {
                     "t": t,
@@ -351,6 +750,7 @@ def _collect_micro_tracking(
                     "cx": float(kp[:, 0].mean()),
                     "h": h,
                     "w_img": w_img,
+                    "box_h": box_h,
                 }
             )
     pbar.close()
@@ -424,7 +824,7 @@ def _collect_micro_tracking(
         if learn_identities and ass.status == "new" and vec_for_reg is not None:
             identity.register_new_identity(sid, display_name, vec_for_reg.astype(float).tolist())
 
-    return tracks, warnings, reid_by_track
+    return tracks, warnings, reid_by_track, dict(track_face_vecs), dict(track_app_vecs), dict(track_face_ages)
 
 
 def _run_micro_sorted_slots(
