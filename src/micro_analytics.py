@@ -601,7 +601,16 @@ def run_micro(
                     continue
                 reid_by_root.setdefault(str(root), info)
 
+            # 「children_kept」反映實際進入報告的小孩數（足夠 frame 到能算出指標的 cluster），
+            # 而非 cluster 本身的個數；另外用 child_clusters_total 記錄完整保留下來的小孩身分數，
+            # short_track_dropped 記錄該 cluster 因 frame 不足被陣列邊緣化的個數。
+            n_children_reported = len(children)
+            n_short_dropped = max(0, n_children - n_children_reported)
             warnings = mp_warn + list(wmsg) + list(w2) + cluster_warnings
+            if n_short_dropped:
+                warnings.append(
+                    f"軌跡太短未产出指標：{n_short_dropped} 個身分（frame 數不足或 <8 幀，已從報告略去）"
+                )
             out = {
                 "children": children,
                 "bpm_hint": bpm_hint,
@@ -614,7 +623,9 @@ def run_micro(
                     "raw_tracks": n_raw,
                     "merged_identities": n_clusters,
                     "adults_excluded": adults_filtered_count,
-                    "children_kept": n_children,
+                    "child_clusters_total": n_children,
+                    "children_kept": n_children_reported,
+                    "short_track_dropped": n_short_dropped,
                 },
             }
             if not children and not series_by_tid:

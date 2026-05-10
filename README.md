@@ -113,6 +113,7 @@ python -m src <影片路徑> [--model yolov8n-pose.pt] [--stride 4] [--learn-ide
 | `--model` | YOLO 權重路徑或模型名（預設 `yolov8n-pose.pt`，可改成新版做 A/B）。 |
 | `--learn-identities` | 無法比對時將新身分寫入 `memory/identity_features.db.json`。 |
 | `--no-track` | 停用 ByteTrack，改由左至右槽位對齊。 |
+| `--expected-children N` | 現場實際小孩人數提示；clustering 會以此為目標進一步合併 ByteTrack 重發的軌跡，不含老師 / 其他成人。建議拍攝時記下數字。 |
 | `--t0` / `--t1` | 只分析原片時間區間（需本機 `ffmpeg`）。 |
 | `--pose` | 人框內姿勢精化：`off`（僅 YOLO）、`pose`（MediaPipe Pose）、`holistic`（MediaPipe Holistic）。 |
 | `--no-mediapipe` | 等同 `--pose off`。 |

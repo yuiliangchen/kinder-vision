@@ -110,7 +110,7 @@
 - `reid_by_track` 為可選欄位：會用 ArcFace 均值（閾值 0.85）或外觀均值（閾值 0.72）比對 identity db；**輸出以「軌跡合併後的 cluster root」為單位**，不是原始 ByteTrack id。
 - **Within-run ReID**：同一場跑內會以 face / appearance embedding 合併被 ByteTrack 拆成多條的同一孩子 (詳見 `docs/agents/identity.md` -> within-run ReID)。
 - **成人過濾**：以 bbox 高度中位數 ≥ 1.35× 班級中位視為成人並從 `children` 中排除；完全缺高度訊號時才退回使用 face age。
-- `cluster_summary` 提供 `raw_tracks` / `merged_identities` / `adults_excluded` / `children_kept`，供下游追蹤收斂效果。
+- `cluster_summary` 提供 `raw_tracks` / `merged_identities` / `adults_excluded` / `child_clusters_total` / `children_kept` / `short_track_dropped`，供下游追蹤收斂效果；detail 見 `docs/agents/identity.md`。
 - MediaPipe 初始化失敗時不報錯中斷，改用 YOLO 關節並在 `warnings` 註記。
 
 ---

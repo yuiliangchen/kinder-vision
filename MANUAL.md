@@ -82,6 +82,17 @@ pipeline（任務調度，`src/pipeline.py`）
 - [ ] 拍攝範圍涵蓋主要活動區域
 - [ ] 背景單純，減少無關物體干擾
 - [ ] 音樂聲音清晰（系統需要偵測 BPM）
+- [ ] **記下現場实際小孩人數**（不含老師 / 其他成人）
+
+#### 为什麼需要記下人數？
+
+ByteTrack 在遮蔽、交叉、走出畫面時常會重發新的軌跡編號，同一個小孩可能在 25 秒內被拆成 3–5 條軌跡。系統會以 face / appearance 特徵自動合併，但若能在執行時提供實際人數對接會更精准：
+
+```bash
+python -m src.cli media/input.mp4 --expected-children 15
+```
+
+沒有提供也能跑，但 cluster 收斂會偏保守，可能會多出 5–10 個「軌跡幽靈」（在 `cluster_summary.short_track_dropped` 可看到）。
 
 ---
 
