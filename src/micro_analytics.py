@@ -360,7 +360,18 @@ def _collect_micro_tracking(
         warnings.append("ByteTrack 未產生穩定軌跡；已嘗試改走非追蹤模式（若仍無輸出請調整取樣或影片）")
 
     reid_by_track: dict[str, dict[str, Any]] = {}
-    for tid in tracks:
+    # Fallback labelling: give every track a distinct display name when identity
+    # match fails (otherwise everyone collapses onto "孩子 1" because the in-memory
+    # DB starts empty and `assign_identity` re-uses the next free index).
+    # Sort track ids deterministically so output ordering is stable across runs.
+    def _track_sort_key(t: Any) -> tuple[int, Any]:
+        s = str(t)
+        return (0, int(s)) if s.isdigit() else (1, s)
+
+    sorted_tids = sorted(tracks.keys(), key=_track_sort_key)
+    seen_student_ids: dict[str, str] = {}
+    fallback_counter = 0
+    for tid in sorted_tids:
         fe = _mean_unit_embeddings(track_face_vecs.get(tid, []))
         ae = _mean_unit_embeddings(track_app_vecs.get(tid, []))
         ass = None
@@ -374,16 +385,44 @@ def _collect_micro_tracking(
             ass = identity.assign_identity(ae, match_threshold=0.72)
             src = "appearance_track_mean"
             vec_for_reg = ae
-        if ass is not None:
+        if ass is None:
+            # No embedding at all — synthesize a per-track fallback identity
+            fallback_counter += 1
+            sid = f"T_{tid}"
             reid_by_track[str(tid)] = {
-                "student_id": ass.student_id,
-                "display_name": ass.display_name,
-                "confidence": round(float(ass.confidence), 4),
-                "status": ass.status,
-                "source": src,
+                "student_id": sid,
+                "display_name": f"孩子 {fallback_counter}",
+                "confidence": 0.0,
+                "status": "new",
+                "source": "track_fallback",
             }
-            if learn_identities and ass.status == "new" and vec_for_reg is not None:
-                identity.register_new_identity(ass.student_id, ass.display_name, vec_for_reg.astype(float).tolist())
+            continue
+
+        sid = ass.student_id
+        display_name = ass.display_name
+        if ass.status == "new":
+            # Each new track must get its own label even when the identity DB
+            # has not been persisted yet. Tag the synthetic id with the track
+            # id so two new tracks never collide on `S_NEW_0001`.
+            sid = f"{ass.student_id}_T{tid}"
+            fallback_counter += 1
+            display_name = f"孩子 {fallback_counter}"
+        elif sid in seen_student_ids:
+            # Two tracks matched the same returning identity — keep distinct
+            # display labels so per-child reports do not get merged downstream.
+            display_name = f"{seen_student_ids[sid]}（軌跡 {tid}）"
+        else:
+            seen_student_ids[sid] = display_name
+
+        reid_by_track[str(tid)] = {
+            "student_id": sid,
+            "display_name": display_name,
+            "confidence": round(float(ass.confidence), 4),
+            "status": ass.status,
+            "source": src,
+        }
+        if learn_identities and ass.status == "new" and vec_for_reg is not None:
+            identity.register_new_identity(sid, display_name, vec_for_reg.astype(float).tolist())
 
     return tracks, warnings, reid_by_track
 

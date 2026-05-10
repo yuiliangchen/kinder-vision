@@ -7,6 +7,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import mediapipe as mp
 from mediapipe.tasks.python.core import base_options as base_options_lib
 from mediapipe.tasks.python.vision import HolisticLandmarker, HolisticLandmarkerOptions
 from mediapipe.python._framework_bindings import image as mp_image
@@ -53,7 +54,7 @@ class MediaPipeHolisticRefiner:
             return None
         crop, xi1, yi1, cw, ch = boxed
         rgb = np.ascontiguousarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
-        image = mp_image.Image(image_format=mp_image.ImageFormat.SRGB, data=rgb)
+        image = mp_image.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         result = self._lm.detect(image)
         if not result.pose_landmarks or len(result.pose_landmarks) < 33:
             return None

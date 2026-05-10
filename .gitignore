@@ -15,3 +15,5 @@ media/*
 # Generated report artifacts (do not push)
 reports/*-kinder-*.md
 reports/*-kinder-*.pdf
+reports/metrics/
+

@@ -102,7 +102,11 @@ def run_metrics(macro: dict[str, Any], micro: dict[str, Any]) -> dict[str, Any]:
             concern.append(
                 {
                     "child_id": c["child_id"],
-                    "display_label": identity.display_label_for_child(c.get("student_id"), c.get("child_id")),
+                    "display_label": (
+                        str(c.get("display_name")).strip()
+                        if c.get("display_name") and str(c.get("display_name")).strip()
+                        else identity.display_label_for_child(c.get("student_id"), c.get("child_id"))
+                    ),
                     "reason": "；".join(reasons),
                     "priority": "high" if float(c["avg_displacement_cm"]) > 20 or float(c["avg_error_ms"]) > 220 else "medium",
                 }
